@@ -1,6 +1,7 @@
 import { Dispatch, useEffect, useRef, useState } from 'react';
 import { Suggestion } from '../types';
 import { Action } from '../reducer';
+import { NoteInput } from './NoteInput';
 
 interface Props {
   sug: Suggestion;
@@ -20,7 +21,6 @@ interface Props {
  */
 export function SuggestionPopover({ sug, x, y, above, autoFocus, dispatch, onClose }: Props) {
   const [refining, setRefining] = useState(false);
-  const [q, setQ] = useState('');
   const ref = useRef<HTMLDivElement | null>(null);
   const canRefine = !!sug.refined && !sug.refineUsed;
 
@@ -36,10 +36,10 @@ export function SuggestionPopover({ sug, x, y, above, autoFocus, dispatch, onClo
     dispatch({ type: 'user/rejectSuggestion', id: sug.id });
     onClose();
   };
-  const refine = () => {
-    dispatch({ type: 'user/refineSuggestion', id: sug.id, query: q });
+  const refine = (query: string) => {
+    dispatch({ type: 'user/refineSuggestion', id: sug.id, query });
     setRefining(false);
-    setQ('');
+    ref.current?.focus({ preventScroll: true }); // keyboard stays live on the popover
   };
 
   return (
@@ -82,17 +82,10 @@ export function SuggestionPopover({ sug, x, y, above, autoFocus, dispatch, onClo
         )}
       </div>
       {refining && (
-        <input
-          className="refine-input"
-          autoFocus
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
+        <NoteInput
           placeholder="Refine — e.g. “who exactly, and by when?”"
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === 'Enter') refine();
-            if (e.key === 'Escape') setRefining(false);
-          }}
+          onSubmit={refine}
+          onCancel={() => setRefining(false)}
         />
       )}
     </div>

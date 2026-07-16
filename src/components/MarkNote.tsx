@@ -1,6 +1,7 @@
 import { Dispatch, useState } from 'react';
 import { Mark } from '../types';
 import { Action } from '../reducer';
+import { NoteInput } from './NoteInput';
 
 const KIND_LABEL: Record<Mark['kind'], string> = {
   evidence: 'Evidence',
@@ -19,12 +20,9 @@ interface Props {
  *  quiet actions. Clicking it highlights the anchored text in the document. */
 export function MarkNote({ mark, dispatch, onOpenEvidence, registerEl }: Props) {
   const [replying, setReplying] = useState(false);
-  const [text, setText] = useState('');
 
-  const sendReply = () => {
-    if (!text.trim()) return;
-    dispatch({ type: 'user/replyMark', id: mark.id, text: text.trim() });
-    setText('');
+  const sendReply = (text: string) => {
+    dispatch({ type: 'user/replyMark', id: mark.id, text });
     setReplying(false);
   };
 
@@ -63,19 +61,7 @@ export function MarkNote({ mark, dispatch, onOpenEvidence, registerEl }: Props) 
         <button onClick={() => dispatch({ type: 'user/dismissMark', id: mark.id })}>Dismiss</button>
       </div>
       {replying && (
-        <input
-          className="note-input"
-          autoFocus
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Reply…"
-          onClick={(e) => e.stopPropagation()}
-          onKeyDown={(e) => {
-            e.stopPropagation();
-            if (e.key === 'Enter') sendReply();
-            if (e.key === 'Escape') setReplying(false);
-          }}
-        />
+        <NoteInput placeholder="Reply…" onSubmit={sendReply} onCancel={() => setReplying(false)} />
       )}
     </div>
   );
