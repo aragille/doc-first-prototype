@@ -1,3 +1,5 @@
+import { useRef } from 'react';
+
 /** Workspaces sub-panel: the list of docs, styled like the Notes list.
  *  Only the current workspace is live; the rest are canned. */
 
@@ -5,6 +7,9 @@ interface Props {
   activeTitle: string;
   activeSnippet: string;
 }
+
+const SCROLL_SPEED = 45; // px per second — same pace for every title length
+const SCROLL_CLEARANCE = 2; // minimal — the fade is lifted while scrolling
 
 const stroke = {
   fill: 'none',
@@ -28,6 +33,63 @@ const Shared = () => (
     <path d="M10.6 3.8a2.2 2.2 0 0 1 0 3.5M11.8 10.2c1 .4 1.8 1.3 2.2 2.6" />
   </svg>
 );
+
+/** List row with a hover-scrolling title (constant speed, stops with the
+ *  full title visible clear of the shared icon). */
+function DocItem({
+  title,
+  sub,
+  active,
+}: {
+  title: string;
+  sub: string;
+  active?: boolean;
+}) {
+  const outer = useRef<HTMLSpanElement | null>(null);
+  const inner = useRef<HTMLSpanElement | null>(null);
+
+  const enter = () => {
+    const o = outer.current;
+    const i = inner.current;
+    if (!o || !i) return;
+    const dist = i.scrollWidth - o.clientWidth;
+    if (dist <= 0) return;
+    o.classList.add('scrolling'); // lift the edge fade so the end reads clean
+    const travel = dist + SCROLL_CLEARANCE;
+    i.style.transitionDuration = `${(travel / SCROLL_SPEED).toFixed(2)}s`;
+    i.style.transitionTimingFunction = 'linear';
+    i.style.transitionDelay = '0.25s';
+    i.style.transform = `translateX(-${travel}px)`;
+  };
+
+  const leave = () => {
+    const i = inner.current;
+    outer.current?.classList.remove('scrolling');
+    if (!i) return;
+    // snap straight back to the start — no animation
+    i.style.transitionDuration = '0s';
+    i.style.transitionDelay = '0s';
+    i.style.transform = 'translateX(0)';
+  };
+
+  return (
+    <div
+      className={`doclist-item ${active ? 'active' : ''}`}
+      onMouseEnter={enter}
+      onMouseLeave={leave}
+    >
+      <div className="doclist-title">
+        <span className="doclist-name" ref={outer}>
+          <span className="doclist-name-inner" ref={inner}>
+            {title}
+          </span>
+        </span>
+        <Shared />
+      </div>
+      <div className="doclist-sub">{sub}</div>
+    </div>
+  );
+}
 
 const CANNED = [
   {
@@ -63,25 +125,13 @@ export function DocList({ activeTitle, activeSnippet }: Props) {
       </div>
 
       <div className="doclist-group">Today</div>
-      <div className="doclist-item active">
-        <div className="doclist-title">
-          <span className="doclist-name">{activeTitle || 'Untitled'}</span>
-          <Shared />
-        </div>
-        <div className="doclist-sub">just now · {activeSnippet}</div>
-      </div>
+      <DocItem title={activeTitle || 'Untitled'} sub={`just now · ${activeSnippet}`} active />
 
       {CANNED.map((g) => (
         <div key={g.group}>
           <div className="doclist-group">{g.group}</div>
           {g.items.map((it) => (
-            <div className="doclist-item" key={it.title}>
-              <div className="doclist-title">
-                <span className="doclist-name">{it.title}</span>
-                <Shared />
-              </div>
-              <div className="doclist-sub">{it.sub}</div>
-            </div>
+            <DocItem key={it.title} title={it.title} sub={it.sub} />
           ))}
         </div>
       ))}

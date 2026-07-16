@@ -5,6 +5,16 @@ import { MarkNote } from './MarkNote';
 import { SuggestionNote } from './SuggestionNote';
 import { EVIDENCE_QUOTES } from '../canned';
 
+/** Tiny sentiment face, like the feedback tickets. */
+const Mood = ({ sad }: { sad: boolean }) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round">
+    <circle cx="8" cy="8" r="6.4" />
+    <circle cx="5.8" cy="6.6" r="0.5" fill="currentColor" stroke="none" />
+    <circle cx="10.2" cy="6.6" r="0.5" fill="currentColor" stroke="none" />
+    {sad ? <path d="M5.7 11c.6-.9 1.4-1.4 2.3-1.4s1.7.5 2.3 1.4" /> : <path d="M5.8 10.4h4.4" />}
+  </svg>
+);
+
 /**
  * The insights panel — the AI's only territory. A fixed, independently
  * scrollable rail on the right; notes flow in document order. The document
@@ -86,10 +96,13 @@ export function Gutter({
           </div>
           <p className="gutter-evidence-sub">{evidenceFor || 'churn interviews'}</p>
           {EVIDENCE_QUOTES.map((q) => (
-            <div className="quote" key={q.source}>
-              {q.quote}
-              <br />
-              <span className="quote-chip">{q.source}</span>
+            <div className="quote" key={q.tag}>
+              <div className="quote-head">
+                <Mood sad={q.sad} />
+                <span>{q.ago}</span>
+              </div>
+              <p className="quote-text">{q.quote}</p>
+              <span className={`pill quote-pill tone-${q.tone}`}>{q.tag}</span>
             </div>
           ))}
         </div>

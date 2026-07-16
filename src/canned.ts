@@ -181,13 +181,51 @@ export function seedState(demoMode: boolean): AppState {
   };
 }
 
-/** Fake evidence drawer content — shows marks are wired to data, not style. */
-export const EVIDENCE_QUOTES = [
-  { quote: '“we left because there was no HubSpot sync”', source: 'churn interview #7' },
-  { quote: '“onboarding was fine. it just didn’t connect to anything we use”', source: 'churn interview #11' },
-  { quote: '“we needed the numbers in Slack, where the team actually lives”', source: 'churn interview #14' },
-  { quote: '“setup took an afternoon. the problem showed up later”', source: 'churn interview #19' },
-  { quote: '41 requests for integrations vs 6 for shorter onboarding', source: 'support tickets · Q2' },
+/** Fake evidence content — rendered like feedback tickets, minimized. */
+export interface EvidenceQuote {
+  quote: string;
+  tag: string;
+  tone: 'red' | 'blue';
+  ago: string;
+  sad: boolean;
+}
+
+export const EVIDENCE_QUOTES: EvidenceQuote[] = [
+  {
+    quote: 'We left because there was no HubSpot sync.',
+    tag: 'churn interview #7',
+    tone: 'red',
+    ago: '12 days ago',
+    sad: true,
+  },
+  {
+    quote: 'Onboarding was fine. It just didn’t connect to anything we use.',
+    tag: 'churn interview #11',
+    tone: 'red',
+    ago: '11 days ago',
+    sad: true,
+  },
+  {
+    quote: 'We needed the numbers in Slack, where the team actually lives.',
+    tag: 'churn interview #14',
+    tone: 'red',
+    ago: '9 days ago',
+    sad: true,
+  },
+  {
+    quote: 'Setup took an afternoon. The problem showed up later.',
+    tag: 'churn interview #19',
+    tone: 'red',
+    ago: '8 days ago',
+    sad: false,
+  },
+  {
+    quote: '41 requests for integrations vs 6 for shorter onboarding.',
+    tag: 'support tickets · Q2',
+    tone: 'blue',
+    ago: '7 days ago',
+    sad: false,
+  },
 ];
 
 /** Canned proposals for the ⌘K line, cycled in order. */

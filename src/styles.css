@@ -286,18 +286,37 @@ body {
 
 .doclist-title {
   display: flex;
-  gap: 6px;
+  gap: 9px;
   align-items: center;
   min-width: 0;
 }
 
+/* Long titles scroll horizontally on hover to reveal the full name
+   (clipped with a soft fade otherwise). */
 .doclist-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--ink);
   overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+  flex: 0 1 auto;
+  mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 14px), transparent);
+}
+
+/* while scrolling, drop the fade so the title can end flush */
+.doclist-name.scrolling {
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
+.doclist-name-inner {
+  display: inline-block;
+  white-space: nowrap;
+  transition: transform 0.4s ease;
+  will-change: transform;
+  /* distance & duration are set per-title in JS for constant speed */
 }
 
 .doclist-item.active .doclist-name {
@@ -541,6 +560,7 @@ body {
   overflow-y: auto;
   border-left: 1px solid var(--line);
   background: #fff;
+  font-family: var(--sans); /* everything in the panel is UI type, not serif */
   z-index: 10;
 }
 
@@ -1327,27 +1347,40 @@ kbd {
   color: var(--muted);
 }
 
+/* evidence tickets — like feedback tickets, minimized */
 .quote {
-  border: 1px solid var(--line);
-  border-left: 3px solid var(--blue);
-  border-radius: 10px;
-  padding: 11px 13px;
-  margin-bottom: 10px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: var(--ink);
-  background: var(--card);
-  box-shadow: 0 1px 3px rgba(31, 33, 38, 0.05);
+  padding: 12px 2px;
+  border-bottom: 1px solid var(--line);
 }
 
-.quote-chip {
-  display: inline-block;
-  margin-top: 6px;
-  font-size: 10.5px;
+.quote:last-child {
+  border-bottom: none;
+}
+
+.quote-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
   color: var(--muted);
-  background: rgba(31, 33, 38, 0.05);
-  border-radius: 999px;
-  padding: 2px 8px;
+  margin-bottom: 6px;
+}
+
+.quote-text {
+  margin: 0 0 8px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--ink);
+}
+
+.quote-pill.tone-red {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+.quote-pill.tone-blue {
+  color: var(--blue);
+  background: var(--blue-bg);
 }
 
 /* ---------- demo HUD ---------- */
