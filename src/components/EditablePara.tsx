@@ -1,6 +1,7 @@
 import { useLayoutEffect, useRef, useState } from 'react';
-import { Paragraph } from '../types';
+import { FormatRange, Paragraph } from '../types';
 import { caretOffset, placeCaretAtEnd, rectsForRange } from '../text';
+import { buildParaHtml, parseEditable } from '../richtext';
 
 /** A decoration painted BEHIND the text (provenance tint, anchor highlight,
  *  shimmer). The editable itself stays plain text, so decorations never
@@ -25,7 +26,7 @@ interface Props {
   para: Paragraph;
   overlays: OverlaySpec[];
   isFirst: boolean;
-  onInput: (paraId: string, text: string) => void;
+  onInput: (paraId: string, text: string, formats: FormatRange[]) => void;
   onSplit: (paraId: string, offset: number) => void;
   onMergeBack: (paraId: string) => void;
   /** Fired on click with the caret's character offset — used to light up
@@ -71,17 +72,27 @@ export function EditablePara({
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [painted, setPainted] = useState<Painted[]>([]);
+  const lastHtml = useRef<string | null>(null);
 
-  // Keep DOM text in sync with state without clobbering the caret. While the
-  // user is typing, DOM is the source of truth (onInput → state), so the two
-  // already match and this is a no-op. It only fires for external updates
-  // (accepting a suggestion, demo typing).
+  // Keep DOM in sync with state without clobbering the caret. While the
+  // user is typing, DOM is the source of truth (onInput → state), so this is
+  // a no-op. Unfocused paragraphs render rich HTML built from text + format
+  // ranges; focused external updates (accept, demo typing) set plain text.
   useLayoutEffect(() => {
     const el = ref.current;
     if (!el) return;
-    if ((el.textContent ?? '') !== para.text) {
-      el.textContent = para.text;
-      if (document.activeElement === el) placeCaretAtEnd(el);
+    if (document.activeElement === el) {
+      if ((el.textContent ?? '') !== para.text) {
+        el.textContent = para.text;
+        lastHtml.current = null;
+        placeCaretAtEnd(el);
+      }
+    } else {
+      const html = buildParaHtml(para.text, para.formats);
+      if (lastHtml.current !== html || (el.textContent ?? '') !== para.text) {
+        el.innerHTML = html;
+        lastHtml.current = html;
+      }
     }
   });
 
@@ -110,7 +121,7 @@ export function EditablePara({
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [overlays, para.text]);
+  }, [overlays, para.text, para.formats]);
 
   return (
     <div className="para-wrap">
@@ -128,12 +139,16 @@ export function EditablePara({
           ref.current = el;
           registerEl(para.id, el);
         }}
-        className="para-editor"
+        className={`para-editor kind-${para.kind}`}
         contentEditable
         suppressContentEditableWarning
         spellCheck={false}
         data-editor={para.id}
-        onInput={(e) => onInput(para.id, e.currentTarget.textContent ?? '')}
+        onInput={(e) => {
+          const parsed = parseEditable(e.currentTarget);
+          lastHtml.current = null; // DOM is ahead of state while focused
+          onInput(para.id, parsed.text, parsed.formats);
+        }}
         onFocus={() => onFocusPara(para.id)}
         onBlur={() => onBlurPara(para.id)}
         onClick={(e) => {

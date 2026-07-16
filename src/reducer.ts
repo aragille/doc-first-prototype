@@ -14,18 +14,33 @@
  * Grep test: search this file for `doc` — it appears only in `userReducer`.
  */
 
-import { AiState, Anchor, AppState, Mark, Paragraph, Suggestion, ThreadMsg } from './types';
+import {
+  AiState,
+  Anchor,
+  AppState,
+  BlockKind,
+  FormatRange,
+  Mark,
+  ParaSnapshot,
+  Paragraph,
+  Suggestion,
+  ThreadMsg,
+} from './types';
 import { adjustRange, ChangeBounds, diffBounds } from './text';
+import { rebaseFormats, shiftFormats, splitFormats } from './richtext';
 import { CANNED_THREAD_REPLIES } from './canned';
 
 /* ---------------- actions ---------------- */
 
 export type UserAction =
-  | { type: 'user/input'; paraId: string; text: string }
+  | { type: 'user/input'; paraId: string; text: string; formats?: FormatRange[] }
   | { type: 'user/setTitle'; title: string }
+  | { type: 'user/setKind'; paraId: string; kind: BlockKind }
+  | { type: 'user/toggleTodo'; paraId: string }
   | { type: 'user/splitPara'; paraId: string; offset: number; newParaId: string }
   | { type: 'user/mergePara'; paraId: string }
-  | { type: 'user/restoreVersion'; title: string; paras: Array<{ id: string; text: string }> }
+  | { type: 'user/restoreVersion'; title: string; paras: ParaSnapshot[] }
+  | { type: 'user/undo'; state: AppState }
   | { type: 'user/acceptSuggestion'; id: string }
   | { type: 'user/rejectSuggestion'; id: string }
   | { type: 'user/refineSuggestion'; id: string; query: string }
@@ -115,8 +130,11 @@ function userReducer(state: AppState, action: UserAction): AppState {
             return r ? { ...para.provenance, ...r } : null;
           })()
         : null;
+      // Formats either come parsed from the DOM (rich edits) or are rebased
+      // across the change (plain programmatic typing).
+      const formats = action.formats ?? rebaseFormats(para.formats, change);
       const paras = state.doc.paras.map((p) =>
-        p.id === para.id ? { ...p, text: action.text, provenance } : p
+        p.id === para.id ? { ...p, text: action.text, formats, provenance } : p
       );
       return {
         doc: { ...state.doc, paras },
@@ -127,6 +145,26 @@ function userReducer(state: AppState, action: UserAction): AppState {
     case 'user/setTitle':
       return { ...state, doc: { ...state.doc, title: action.title } };
 
+    // ⌘Z: user-initiated wholesale restore of an earlier state snapshot.
+    case 'user/undo':
+      return action.state;
+
+    case 'user/setKind': {
+      const paras = state.doc.paras.map((p) =>
+        p.id === action.paraId
+          ? { ...p, kind: action.kind, done: action.kind === 'todo' ? p.done : false }
+          : p
+      );
+      return { ...state, doc: { ...state.doc, paras } };
+    }
+
+    case 'user/toggleTodo': {
+      const paras = state.doc.paras.map((p) =>
+        p.id === action.paraId && p.kind === 'todo' ? { ...p, done: !p.done } : p
+      );
+      return { ...state, doc: { ...state.doc, paras } };
+    }
+
     // Enter: split a paragraph at the caret. Anchors follow their text —
     // entirely before the split they stay, entirely after they move to the
     // new paragraph, spanning the split they die.
@@ -136,14 +174,20 @@ function userReducer(state: AppState, action: UserAction): AppState {
       const para = state.doc.paras[idx];
       const offset = Math.max(0, Math.min(action.offset, para.text.length));
       const prov = para.provenance;
+      const fmts = splitFormats(para.formats, offset);
       const first: Paragraph = {
         ...para,
         text: para.text.slice(0, offset),
+        formats: fmts.first,
         provenance: prov && prov.end <= offset ? prov : null,
       };
       const second: Paragraph = {
         id: action.newParaId,
         text: para.text.slice(offset),
+        // Enter continues lists; headings hand off to body text.
+        kind: para.kind === 'bullet' || para.kind === 'todo' ? para.kind : 'p',
+        done: false,
+        formats: fmts.second,
         provenance:
           prov && prov.start >= offset
             ? { ...prov, start: prov.start - offset, end: prov.end - offset }
@@ -191,7 +235,12 @@ function userReducer(state: AppState, action: UserAction): AppState {
               end: para.provenance.end + junction,
             }
           : null);
-      const merged: Paragraph = { ...prev, text: prev.text + para.text, provenance };
+      const merged: Paragraph = {
+        ...prev,
+        text: prev.text + para.text,
+        formats: [...prev.formats, ...shiftFormats(para.formats, junction)],
+        provenance,
+      };
       const paras = [
         ...state.doc.paras.slice(0, idx - 1),
         merged,
@@ -213,6 +262,9 @@ function userReducer(state: AppState, action: UserAction): AppState {
       const paras: Paragraph[] = action.paras.map((p) => ({
         id: p.id,
         text: p.text,
+        kind: p.kind,
+        done: p.done,
+        formats: p.formats,
         provenance: null,
       }));
       const textById = new Map(paras.map((p) => [p.id, p.text]));
@@ -243,7 +295,12 @@ function userReducer(state: AppState, action: UserAction): AppState {
       const change: ChangeBounds = { start, oldEnd: end, newEnd: start + sug.proposedText.length };
       const paras = state.doc.paras.map((p) =>
         p.id === para.id
-          ? { ...p, text, provenance: { start, end: change.newEnd, acceptedAt: Date.now() } }
+          ? {
+              ...p,
+              text,
+              formats: rebaseFormats(p.formats, change),
+              provenance: { start, end: change.newEnd, acceptedAt: Date.now() },
+            }
           : p
       );
       const ai = rebaseAnnotations(state.ai, para.id, change);

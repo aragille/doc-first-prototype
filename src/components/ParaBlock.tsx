@@ -7,11 +7,14 @@ interface Props {
   marks: Mark[];
   suggestion: Suggestion | undefined;
   shimmer: Anchor | null;
+  /** Range the ask line is currently attached to — stays visibly selected. */
+  asking: Anchor | null;
   isFirst: boolean;
-  onTyped: (paraId: string, text: string) => void;
+  onTyped: (paraId: string, text: string, formats: Paragraph['formats']) => void;
   onSplit: (paraId: string, offset: number) => void;
   onMergeBack: (paraId: string) => void;
   onCaretAt: (paraId: string, offset: number) => void;
+  onToggleTodo: (paraId: string) => void;
   onFocusPara: (paraId: string) => void;
   onBlurPara: (paraId: string) => void;
   onEscape: () => void;
@@ -30,11 +33,13 @@ export function ParaBlock({
   marks,
   suggestion,
   shimmer,
+  asking,
   isFirst,
   onTyped,
   onSplit,
   onMergeBack,
   onCaretAt,
+  onToggleTodo,
   onFocusPara,
   onBlurPara,
   onEscape,
@@ -70,27 +75,48 @@ export function ParaBlock({
         end: m.anchor.end,
       });
     }
+    if (asking) {
+      list.push({ key: 'asking', className: 'ov-asking', start: asking.start, end: asking.end });
+    }
     if (shimmer) {
       list.push({ key: 'shimmer', className: 'ov-shimmer', start: shimmer.start, end: shimmer.end });
     }
     return list;
-  }, [para.provenance, suggestion, marks, shimmer]);
+  }, [para.provenance, suggestion, marks, asking, shimmer]);
 
   return (
-    <section className="para-block" ref={(el) => registerBlock(para.id, el)}>
-      <EditablePara
-        para={para}
-        overlays={overlays}
-        isFirst={isFirst}
-        onInput={onTyped}
-        onSplit={onSplit}
-        onMergeBack={onMergeBack}
-        onCaretAt={onCaretAt}
-        onFocusPara={onFocusPara}
-        onBlurPara={onBlurPara}
-        onEscape={onEscape}
-        registerEl={registerEditor}
-      />
+    <section
+      className={`para-block block-${para.kind} ${
+        para.kind === 'todo' && para.done ? 'todo-done' : ''
+      }`}
+      ref={(el) => registerBlock(para.id, el)}
+    >
+      {para.kind === 'todo' && (
+        <button
+          className={`todo-box ${para.done ? 'checked' : ''}`}
+          aria-label="Toggle done"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => onToggleTodo(para.id)}
+        >
+          {para.done ? '✓' : ''}
+        </button>
+      )}
+      {para.kind === 'bullet' && <span className="bullet-dot">•</span>}
+      <div className="para-body">
+        <EditablePara
+          para={para}
+          overlays={overlays}
+          isFirst={isFirst}
+          onInput={onTyped}
+          onSplit={onSplit}
+          onMergeBack={onMergeBack}
+          onCaretAt={onCaretAt}
+          onFocusPara={onFocusPara}
+          onBlurPara={onBlurPara}
+          onEscape={onEscape}
+          registerEl={registerEditor}
+        />
+      </div>
     </section>
   );
 }

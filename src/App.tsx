@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Anchor, Gear, Mark } from './types';
+import { Anchor, BlockKind, FormatRange, Gear, Mark } from './types';
 import { Action, rootReducer } from './reducer';
 import { CMDK_POOL, seedState } from './canned';
 import { placeCaretAt, placeCaretAtEnd, rectsForRange, selectionOffsets } from './text';
@@ -22,7 +22,6 @@ const SharedIcon = () => (
 );
 import { ParaBlock } from './components/ParaBlock';
 import { Gutter } from './components/Gutter';
-import { EvidenceDrawer } from './components/EvidenceDrawer';
 import { CommandLine } from './components/CommandLine';
 import { TitleEditor } from './components/TitleEditor';
 import { Sidebar } from './components/Sidebar';
@@ -32,13 +31,21 @@ import { useDemo } from './demo';
 const IDLE_MS = 4000; // writing → review after ~4s of stillness
 const MAX_VISIBLE_MARKS = 6; // hard cap; extras queue
 
-function agoLabel(t: number): string {
-  const s = Math.floor((Date.now() - t) / 1000);
-  if (s < 60) return 'just now';
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  return `${Math.floor(m / 60)}h ago`;
-}
+/** Actions that land on the ⌘Z stack (transient open/close ones don't). */
+const UNDOABLE = new Set<string>([
+  'user/input',
+  'user/setTitle',
+  'user/setKind',
+  'user/toggleTodo',
+  'user/splitPara',
+  'user/mergePara',
+  'user/acceptSuggestion',
+  'user/rejectSuggestion',
+  'user/refineSuggestion',
+  'user/dismissMark',
+  'user/replyMark',
+  'user/restoreVersion',
+]);
 
 function isTypingTarget(t: EventTarget | null): boolean {
   return (
@@ -60,10 +67,12 @@ export default function App() {
 
   const [gear, setGear] = useState<Gear>('writing');
   const [activeParaId, setActiveParaId] = useState<string | null>(null);
-  const [drawerFor, setDrawerFor] = useState<string | null>(null);
+  const [drawerFor, setDrawerFor] = useState<string | null>(null); // evidence drill-in
+  const [fmtBar, setFmtBar] = useState<{ x: number; y: number } | null>(null);
   const [cmdk, setCmdk] = useState<{ anchor: Anchor; x: number; y: number } | null>(null);
   const [shimmer, setShimmer] = useState<Anchor | null>(null);
   const [highlightedSugId, setHighlightedSugId] = useState<string | null>(null);
+  const openMarkId = state.ai.marks.find((m) => m.state === 'open')?.id ?? null;
   const [sugPopover, setSugPopover] = useState<{
     sugId: string;
     x: number;
@@ -88,10 +97,16 @@ export default function App() {
   useEffect(() => {
     const now = Date.now();
     const title = stateRef.current.doc.title;
-    const paras = stateRef.current.doc.paras.map((p) => ({ id: p.id, text: p.text }));
+    const paras = stateRef.current.doc.paras.map((p) => ({
+      id: p.id,
+      text: p.text,
+      kind: p.kind,
+      done: p.done,
+      formats: p.formats,
+    }));
     setVersions([
       { id: 1, at: now - 2 * 86400_000 - 3_600_000, title, paras: paras.slice(0, 4) },
-      { id: 2, at: now - 86400_000 - 7_200_000, title, paras: paras.slice(0, 7) },
+      { id: 2, at: now - 86400_000 - 7_200_000, title, paras: paras.slice(0, 8) },
       { id: 3, at: now - 3 * 3_600_000, title, paras },
     ]);
   }, []);
@@ -100,7 +115,13 @@ export default function App() {
   const pushVersion = useCallback((restoredFrom?: number) => {
     window.setTimeout(() => {
       const title = stateRef.current.doc.title;
-      const paras = stateRef.current.doc.paras.map((p) => ({ id: p.id, text: p.text }));
+      const paras = stateRef.current.doc.paras.map((p) => ({
+        id: p.id,
+        text: p.text,
+        kind: p.kind,
+        done: p.done,
+        formats: p.formats,
+      }));
       setVersions((prev) => {
         const last = prev[prev.length - 1];
         const same =
@@ -114,17 +135,35 @@ export default function App() {
     }, 80);
   }, []);
 
-  // Accepting a suggestion is a real revision — it lands in version history.
-  // (The doc itself keeps no trace: the green tint fades fully away.)
+  /* ---------- undo (⌘Z) / redo (⇧⌘Z) ---------- */
+
+  const undoRef = useRef<ReturnType<typeof seedState>[]>([]);
+  const redoRef = useRef<ReturnType<typeof seedState>[]>([]);
+  const lastInputRef = useRef<{ paraId: string; at: number } | null>(null);
+
+  // The single dispatch for user actions: snapshots for ⌘Z (consecutive
+  // keystrokes in one paragraph coalesce into one undo step) and versions
+  // for accepted suggestions.
   const appDispatch = useCallback(
     (action: Action) => {
+      if (UNDOABLE.has(action.type)) {
+        const now = Date.now();
+        const coalesce =
+          action.type === 'user/input' &&
+          lastInputRef.current !== null &&
+          lastInputRef.current.paraId === action.paraId &&
+          now - lastInputRef.current.at < 800;
+        if (!coalesce) undoRef.current = [...undoRef.current.slice(-99), stateRef.current];
+        lastInputRef.current =
+          action.type === 'user/input' ? { paraId: action.paraId, at: now } : null;
+        redoRef.current = [];
+      }
       dispatch(action);
       if (action.type === 'user/acceptSuggestion') pushVersion();
     },
     [pushVersion]
   );
-  const [lastEditAt, setLastEditAt] = useState(() => Date.now() - 2 * 60_000);
-  const [, setTick] = useState(0);
+
 
   const editorEls = useRef(new Map<string, HTMLDivElement>());
   const pendingFocus = useRef<{ paraId: string; offset: number } | null>(null);
@@ -141,11 +180,28 @@ export default function App() {
   /* ---------- gear machine ---------- */
 
   const notifyTyping = useCallback(() => {
-    setLastEditAt(Date.now());
     setGear('writing');
     window.clearTimeout(idleTimer.current);
     idleTimer.current = window.setTimeout(() => setGear('review'), IDLE_MS);
   }, []);
+
+  const undo = useCallback(() => {
+    const prev = undoRef.current.pop();
+    if (!prev) return;
+    redoRef.current.push(stateRef.current);
+    lastInputRef.current = null;
+    dispatch({ type: 'user/undo', state: prev });
+    notifyTyping();
+  }, [notifyTyping]);
+
+  const redo = useCallback(() => {
+    const next = redoRef.current.pop();
+    if (!next) return;
+    undoRef.current.push(stateRef.current);
+    lastInputRef.current = null;
+    dispatch({ type: 'user/undo', state: next });
+    notifyTyping();
+  }, [notifyTyping]);
 
   // The doc opens with the caret parked in P4, writing gear, idle clock running.
   useEffect(() => {
@@ -222,6 +278,9 @@ export default function App() {
         autoFocus: !!opts?.focus,
       });
       setHighlightedSugId(sugId);
+      setDrawerFor(null); // one popover at a time
+      const openMark = stateRef.current.ai.marks.find((m) => m.state === 'open');
+      if (openMark) dispatch({ type: 'user/closeMark', id: openMark.id });
       scrollGutterToNote(sugId);
     },
     [scrollGutterToNote]
@@ -284,7 +343,7 @@ export default function App() {
       setVersions((prev) => {
         const v = prev.find((x) => x.id === id);
         if (v) {
-          dispatch({ type: 'user/restoreVersion', title: v.title, paras: v.paras });
+          appDispatch({ type: 'user/restoreVersion', title: v.title, paras: v.paras });
         }
         return prev;
       });
@@ -298,6 +357,12 @@ export default function App() {
   /* ---------- the line (⌘K) ---------- */
 
   const openCmdline = useCallback(() => {
+    // one popover at a time
+    setSugPopover(null);
+    setHighlightedSugId(null);
+    setDrawerFor(null);
+    const openMark = stateRef.current.ai.marks.find((m) => m.state === 'open');
+    if (openMark) dispatch({ type: 'user/closeMark', id: openMark.id });
     const sel = window.getSelection();
     if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return;
     const range = sel.getRangeAt(0);
@@ -357,6 +422,14 @@ export default function App() {
         openCmdline();
         return;
       }
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') {
+        // small inputs (reply/refine/ask) keep native undo
+        if (e.target instanceof HTMLInputElement) return;
+        e.preventDefault();
+        if (e.shiftKey) redo();
+        else undo();
+        return;
+      }
       if (e.key === 'Escape') {
         if (historyOpenRef.current) {
           setHistoryOpen(false);
@@ -390,19 +463,126 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openCmdline, closeSugPopover, demo.active, demo.next, demo.toggle]);
+  }, [openCmdline, closeSugPopover, undo, redo, demo.active, demo.next, demo.toggle]);
 
-  // "edited Nm ago" ticker
+  // One popover at a time: opening a mark closes the suggestion popover.
   useEffect(() => {
-    const t = window.setInterval(() => setTick((n) => n + 1), 30_000);
-    return () => window.clearInterval(t);
+    if (openMarkId) {
+      setSugPopover(null);
+      setHighlightedSugId(null);
+    }
+  }, [openMarkId]);
+
+  // Clicking anywhere outside the text, panel, or an open popover closes
+  // everything transient (evidence drill-in, suggestion popover, ask line,
+  // mark highlight). Clicks in the editor are handled by onCaretAt.
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      const t = e.target instanceof HTMLElement ? e.target : null;
+      if (!t) return;
+      if (t.closest('[data-editor]')) return;
+      if (t.closest('.gutter') || t.closest('.sug-popover') || t.closest('.cmdline') || t.closest('.fmt-bar')) {
+        return;
+      }
+      const keepCmdk = t.closest('.ask-btn') !== null;
+      setSugPopover(null);
+      setHighlightedSugId(null);
+      setDrawerFor(null);
+      if (!keepCmdk) setCmdk(null);
+      const open = stateRef.current.ai.marks.find((m) => m.state === 'open');
+      if (open) dispatch({ type: 'user/closeMark', id: open.id });
+    };
+    window.addEventListener('mousedown', onDown);
+    return () => window.removeEventListener('mousedown', onDown);
+  }, []);
+
+  // Floating format bar over a text selection in the doc (B / I / U).
+  useEffect(() => {
+    const onSel = () => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0 || sel.isCollapsed) {
+        setFmtBar(null);
+        return;
+      }
+      const r = sel.getRangeAt(0);
+      const container =
+        r.startContainer instanceof HTMLElement
+          ? r.startContainer
+          : r.startContainer.parentElement;
+      if (!container?.closest('[data-editor]')) {
+        setFmtBar(null);
+        return;
+      }
+      const rect = r.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0) {
+        setFmtBar(null);
+        return;
+      }
+      setFmtBar((prev) => {
+        const x = rect.left + rect.width / 2;
+        const y = rect.top;
+        return prev && Math.abs(prev.x - x) < 1 && Math.abs(prev.y - y) < 1 ? prev : { x, y };
+      });
+    };
+    document.addEventListener('selectionchange', onSel);
+    return () => document.removeEventListener('selectionchange', onSel);
   }, []);
 
   /* ---------- handlers ---------- */
 
+  // Rich input: text + inline format ranges parsed from the DOM. Markdown
+  // shortcuts at the start of an empty paragraph switch its block kind:
+  // "# " / "## " headings, "- " bullets, "[] " todos.
   const onTyped = useCallback(
-    (paraId: string, text: string) => {
-      dispatch({ type: 'user/input', paraId, text });
+    (paraId: string, text: string, formats: FormatRange[]) => {
+      const para = stateRef.current.doc.paras.find((p) => p.id === paraId);
+      if (para && para.kind === 'p') {
+        const m = /^(#{1,2}|[-*]|\[\])\s$/.exec(text);
+        if (m) {
+          const kind: BlockKind = m[1].startsWith('#')
+            ? m[1] === '#'
+              ? 'h2'
+              : 'h3'
+            : m[1] === '[]'
+              ? 'todo'
+              : 'bullet';
+          appDispatch({ type: 'user/setKind', paraId, kind });
+          appDispatch({ type: 'user/input', paraId, text: '', formats: [] });
+          notifyTyping();
+          return;
+        }
+      }
+      appDispatch({ type: 'user/input', paraId, text, formats });
+      notifyTyping();
+    },
+    [notifyTyping]
+  );
+
+  // Block-kind buttons in the format bar act on the paragraph that holds
+  // the selection; clicking the active kind toggles back to body text.
+  const setKindFromSelection = useCallback(
+    (kind: BlockKind) => {
+      const sel = window.getSelection();
+      if (!sel || sel.rangeCount === 0) return;
+      const r = sel.getRangeAt(0);
+      const container =
+        r.startContainer instanceof HTMLElement
+          ? r.startContainer
+          : r.startContainer.parentElement;
+      const editorEl = container?.closest<HTMLElement>('[data-editor]');
+      if (!editorEl) return;
+      const paraId = editorEl.getAttribute('data-editor')!;
+      const para = stateRef.current.doc.paras.find((p) => p.id === paraId);
+      if (!para) return;
+      appDispatch({ type: 'user/setKind', paraId, kind: para.kind === kind ? 'p' : kind });
+      notifyTyping();
+    },
+    [notifyTyping]
+  );
+
+  const onToggleTodo = useCallback(
+    (paraId: string) => {
+      appDispatch({ type: 'user/toggleTodo', paraId });
       notifyTyping();
     },
     [notifyTyping]
@@ -414,7 +594,7 @@ export default function App() {
   const onSplit = useCallback(
     (paraId: string, offset: number) => {
       const newParaId = `p-${Date.now().toString(36)}${Math.floor(Math.random() * 1e4)}`;
-      dispatch({ type: 'user/splitPara', paraId, offset, newParaId });
+      appDispatch({ type: 'user/splitPara', paraId, offset, newParaId });
       pendingFocus.current = { paraId: newParaId, offset: 0 };
       notifyTyping();
     },
@@ -425,9 +605,17 @@ export default function App() {
     (paraId: string) => {
       const paras = stateRef.current.doc.paras;
       const idx = paras.findIndex((p) => p.id === paraId);
-      if (idx <= 0) return;
+      if (idx < 0) return;
+      // Backspace at the start of a heading/list block first reverts it to
+      // body text (standard editor behavior); a second backspace merges.
+      if (paras[idx].kind !== 'p') {
+        appDispatch({ type: 'user/setKind', paraId, kind: 'p' });
+        notifyTyping();
+        return;
+      }
+      if (idx === 0) return;
       const prev = paras[idx - 1];
-      dispatch({ type: 'user/mergePara', paraId });
+      appDispatch({ type: 'user/mergePara', paraId });
       pendingFocus.current = { paraId: prev.id, offset: prev.text.length };
       notifyTyping();
     },
@@ -447,7 +635,7 @@ export default function App() {
 
   const onTitleChange = useCallback(
     (title: string) => {
-      dispatch({ type: 'user/setTitle', title });
+      appDispatch({ type: 'user/setTitle', title });
       notifyTyping();
     },
     [notifyTyping]
@@ -524,8 +712,6 @@ export default function App() {
     else noteEls.current.delete(id);
   }, []);
 
-  const queuedMarks = state.ai.marks.filter((m) => m.state === 'queued').length;
-
   /* ---------- render ---------- */
 
   if (historyOpen && versions.length > 0) {
@@ -556,14 +742,16 @@ export default function App() {
         activeSnippet={state.doc.paras[0]?.text.slice(0, 42) ?? ''}
       />
       <div className="top-chrome">
-        {queuedMarks > 0 && (
-          <span className="chip">
-            {queuedMarks} mark{queuedMarks === 1 ? '' : 's'} queued
-          </span>
-        )}
-        <span className={`gear-ind gear-ind-${gear}`} title="Esc — switch to review">
-          <span className="gear-dot" />
-          {gear}
+        <span className={`gear-ind gear-ind-${gear}`} title="Esc — settle into review">
+          {gear === 'review' ? (
+            <>
+              <span className="gear-check">✓</span> auto-saved
+            </>
+          ) : (
+            <>
+              <span className="gear-dot" /> saving…
+            </>
+          )}
         </span>
         <button className="chrome-btn" title="Version history" onClick={openHistory}>
           <HistoryIcon />
@@ -583,7 +771,6 @@ export default function App() {
                 onEnter={onTitleEnter}
                 onEscape={onEscape}
               />
-              <div className="doc-meta">draft · edited {agoLabel(lastEditAt)}</div>
             </header>
 
             {state.doc.paras.map((para, i) => (
@@ -595,11 +782,13 @@ export default function App() {
                   (s) => s.anchor.paraId === para.id && s.state === 'pending'
                 )}
                 shimmer={shimmer && shimmer.paraId === para.id ? shimmer : null}
+                asking={cmdk && cmdk.anchor.paraId === para.id ? cmdk.anchor : null}
                 isFirst={i === 0}
                 onTyped={onTyped}
                 onSplit={onSplit}
                 onMergeBack={onMergeBack}
                 onCaretAt={onCaretAt}
+                onToggleTodo={onToggleTodo}
                 onFocusPara={onFocusPara}
                 onBlurPara={onBlurPara}
                 onEscape={onEscape}
@@ -618,9 +807,11 @@ export default function App() {
         suggestions={state.ai.suggestions}
         gear={gear}
         highlightedSugId={highlightedSugId}
-        dispatch={dispatch}
+        dispatch={appDispatch}
         gutterRef={gutterRef}
         registerNote={registerNote}
+        evidenceFor={drawerFor}
+        onCloseEvidence={() => setDrawerFor(null)}
         onOpenEvidence={onOpenEvidence}
         onOpenSuggestion={(id) => openSugPopover(id, { focus: true, scrollDoc: true })}
         onWake={onWake}
@@ -642,13 +833,52 @@ export default function App() {
           ) : null;
         })()}
 
-      <div className="cmdk-hint">⌘K — ask about selection</div>
-
-      <EvidenceDrawer
-        open={drawerFor !== null}
-        sourceLabel={drawerFor ?? ''}
-        onClose={() => setDrawerFor(null)}
-      />
+      {fmtBar && !cmdk && (
+        <div
+          className="fmt-bar"
+          style={{ left: fmtBar.x, top: fmtBar.y }}
+          onMouseDown={(e) => e.preventDefault()} // keep the selection alive
+        >
+          <button title="Bold — ⌘B" onClick={() => document.execCommand('bold')}>
+            <strong>B</strong>
+          </button>
+          <button title="Italic — ⌘I" onClick={() => document.execCommand('italic')}>
+            <em>I</em>
+          </button>
+          <button title="Underline — ⌘U" onClick={() => document.execCommand('underline')}>
+            <u>U</u>
+          </button>
+          <button title="Strikethrough" onClick={() => document.execCommand('strikeThrough')}>
+            <s>S</s>
+          </button>
+          <span className="fmt-sep" />
+          <button title="Heading 1" className="fmt-h" onClick={() => setKindFromSelection('h2')}>
+            H1
+          </button>
+          <button title="Heading 2" className="fmt-h" onClick={() => setKindFromSelection('h3')}>
+            H2
+          </button>
+          <span className="fmt-sep" />
+          <button title="Bullet list" onClick={() => setKindFromSelection('bullet')}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+              <circle cx="3" cy="4" r="0.9" fill="currentColor" stroke="none" />
+              <circle cx="3" cy="8" r="0.9" fill="currentColor" stroke="none" />
+              <circle cx="3" cy="12" r="0.9" fill="currentColor" stroke="none" />
+              <path d="M6.5 4h7M6.5 8h7M6.5 12h7" />
+            </svg>
+          </button>
+          <button title="Checklist" onClick={() => setKindFromSelection('todo')}>
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m1.8 4 1 1 1.8-2M1.8 10.5l1 1 1.8-2" />
+              <path d="M7.5 4h7M7.5 11h7" />
+            </svg>
+          </button>
+          <span className="fmt-sep" />
+          <button className="fmt-ask" onClick={openCmdline}>
+            ✦ Ask Noctua
+          </button>
+        </div>
+      )}
 
       {cmdk && (
         <CommandLine x={cmdk.x} y={cmdk.y} onSubmit={submitCmdline} onDismiss={() => setCmdk(null)} />

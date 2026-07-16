@@ -3,6 +3,7 @@ import { Gear, Mark, Paragraph, Suggestion } from '../types';
 import { Action } from '../reducer';
 import { MarkNote } from './MarkNote';
 import { SuggestionNote } from './SuggestionNote';
+import { EVIDENCE_QUOTES } from '../canned';
 
 /**
  * The insights panel — the AI's only territory. A fixed, independently
@@ -25,6 +26,9 @@ interface Props {
   dispatch: Dispatch<Action>;
   gutterRef: RefObject<HTMLDivElement>;
   registerNote: (id: string, el: HTMLDivElement | null) => void;
+  /** When set, the panel drills one level deeper into evidence. */
+  evidenceFor: string | null;
+  onCloseEvidence: () => void;
   onOpenEvidence: (mark: Mark) => void;
   onOpenSuggestion: (sugId: string) => void;
   onWake: () => void;
@@ -39,6 +43,8 @@ export function Gutter({
   dispatch,
   gutterRef,
   registerNote,
+  evidenceFor,
+  onCloseEvidence,
   onOpenEvidence,
   onOpenSuggestion,
   onWake,
@@ -69,10 +75,33 @@ export function Gutter({
         if (gear === 'writing') onWake();
       }}
     >
-      <div className="gutter-head">
-        Signals <span className="gutter-count">{items.length}</span>
-      </div>
-      {items.map((item) =>
+      {/* Evidence is one level deeper inside the same panel. */}
+      {evidenceFor !== null && (
+        <div className="gutter-evidence">
+          <div className="gutter-head">
+            <button className="gutter-back" onClick={onCloseEvidence} aria-label="Back to signals">
+              ←
+            </button>
+            Evidence
+          </div>
+          <p className="gutter-evidence-sub">{evidenceFor || 'churn interviews'}</p>
+          {EVIDENCE_QUOTES.map((q) => (
+            <div className="quote" key={q.source}>
+              {q.quote}
+              <br />
+              <span className="quote-chip">{q.source}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {evidenceFor === null && (
+        <div className="gutter-head">
+          Signals <span className="gutter-count">{items.length}</span>
+        </div>
+      )}
+      {evidenceFor === null &&
+        items.map((item) =>
         item.type === 'mark' ? (
           <MarkNote
             key={item.id}

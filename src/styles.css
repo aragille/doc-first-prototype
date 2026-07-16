@@ -330,13 +330,14 @@ body {
   position: relative;
   max-width: 680px;
   margin: 0 auto;
+  cursor: text; /* the whole doc reads as a writing surface */
 }
 
 .doc-title {
   font-size: 27px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  margin: 0 0 6px;
+  margin: 0 0 40px;
   outline: none;
   caret-color: var(--ink);
 }
@@ -350,6 +351,77 @@ body {
 
 .para-block {
   margin: 0 0 26px;
+}
+
+/* block kinds */
+.para-block.block-h2 {
+  margin: 36px 0 14px;
+}
+
+.para-block.block-h3 {
+  margin: 28px 0 10px;
+}
+
+.para-editor.kind-h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+}
+
+.para-editor.kind-h3 {
+  font-size: 18.5px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.para-block.block-bullet,
+.para-block.block-todo {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.para-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.bullet-dot {
+  flex: none;
+  line-height: 1.72;
+  font-size: 17.5px;
+  color: var(--ink);
+}
+
+.todo-box {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 5px;
+  border: 1.5px solid #d5d5dc;
+  border-radius: 5px;
+  background: #fff;
+  color: #fff;
+  font-size: 11px;
+  line-height: 1;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.todo-box.checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.todo-done .para-editor {
+  color: var(--muted);
+  text-decoration: line-through;
+  text-decoration-color: rgba(31, 33, 38, 0.3);
 }
 
 .para-wrap {
@@ -429,6 +501,11 @@ body {
   background: rgba(245, 193, 7, 0.4);
 }
 
+/* the range the ask line is attached to — reads as a live selection */
+.ov-asking {
+  background: rgba(124, 111, 240, 0.24);
+}
+
 .ov-shimmer {
   background: linear-gradient(
     100deg,
@@ -449,11 +526,8 @@ body {
   }
 }
 
-/* the room gets quieter: anchor tints recede while writing
-   (provenance and shimmer are exempt — they're user-driven) */
-.gear-writing .para-overlays span:not(.ov-provenance):not(.ov-shimmer) {
-  opacity: 0.35;
-}
+/* Typing changes nothing visually — only the status chip flips to
+   "saving…". Anchor tints and the panel keep their full presence. */
 
 /* ---------- the insights panel: the AI's only territory ---------- */
 
@@ -497,11 +571,6 @@ body {
   color: var(--muted);
 }
 
-/* the room gets quieter: notes recede while writing (opacity only) */
-.gear-writing .gutter .note,
-.gear-writing .gutter-head {
-  opacity: 0.25;
-}
 
 .note {
   position: relative;
@@ -838,19 +907,21 @@ kbd {
   display: flex;
   align-items: center;
   gap: 6px;
-  border-radius: 999px;
-  padding: 3px 10px;
-  transition: background 0.2s ease, color 0.2s ease;
+  padding: 3px 6px;
+  transition: color 0.2s ease;
 }
 
 .gear-ind-writing {
-  color: var(--soft);
-  background: rgba(31, 33, 38, 0.05);
+  color: var(--muted);
 }
 
 .gear-ind-review {
-  color: var(--accent);
-  background: var(--accent-bg);
+  color: var(--ink);
+}
+
+.gear-check {
+  font-size: 12px;
+  line-height: 1;
 }
 
 .gear-dot {
@@ -948,12 +1019,13 @@ kbd {
   display: flex;
 }
 
+/* Match the editor's column exactly so nothing shifts entering history. */
 .hv-doc {
   flex: 1;
   min-width: 0;
-  max-width: 760px;
+  max-width: 728px; /* 680 column + 24px padding each side */
   margin: 0 auto;
-  padding: 92px 32px 30vh;
+  padding: 96px 24px 30vh;
   font-family: var(--serif);
 }
 
@@ -961,7 +1033,7 @@ kbd {
   font-size: 27px;
   font-weight: 600;
   letter-spacing: -0.01em;
-  margin: 0 0 24px;
+  margin: 0 0 40px; /* matches the editor title spacing */
 }
 
 .hv-para {
@@ -987,7 +1059,7 @@ kbd {
 }
 
 .hv-rail {
-  width: 320px;
+  width: var(--gutter-w);
   flex: none;
   border-left: 1px solid var(--line);
   padding: 72px 14px 24px;
@@ -1084,20 +1156,36 @@ kbd {
   line-height: 1.6;
 }
 
-/* bottom-right hint */
-.cmdk-hint {
+/* bottom-right ask button */
+.ask-btn {
   position: fixed;
   right: calc(var(--gutter-w) + 16px);
   bottom: 20px;
   font-family: var(--sans);
-  font-size: 12px;
-  color: var(--soft);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--accent);
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 999px;
-  padding: 7px 13px;
+  padding: 8px 14px;
   box-shadow: 0 1px 3px rgba(31, 33, 38, 0.06);
+  cursor: pointer;
   z-index: 20;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ask-btn:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 10px rgba(124, 111, 240, 0.18);
+}
+
+.fmt-ask {
+  font-weight: 600;
+  color: var(--accent) !important;
+  white-space: nowrap;
+  width: auto !important;
+  padding: 0 8px !important;
 }
 
 /* ---------- the line (⌘K) ---------- */
@@ -1125,51 +1213,131 @@ kbd {
   box-shadow: 0 6px 20px rgba(31, 33, 38, 0.08), 0 0 0 3px rgba(124, 111, 240, 0.12);
 }
 
-/* ---------- evidence drawer (fake) ---------- */
+/* ---------- evidence: one level deeper inside the Signals panel ---------- */
 
-.drawer {
-  position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 320px;
-  background: var(--card);
-  border-left: 1px solid var(--line);
-  transform: translateX(100%);
-  transition: transform 0.22s ease;
-  z-index: 40;
-  font-family: var(--sans);
-  padding: 18px;
-  overflow-y: auto;
+.gutter-evidence {
+  animation: fadeIn 0.15s ease-out;
 }
 
-.drawer.open {
-  transform: translateX(0);
-  box-shadow: -8px 0 30px rgba(31, 33, 38, 0.06);
+.gutter-back {
+  border: none;
+  background: none;
+  color: var(--soft);
+  font-size: 14px;
+  line-height: 1;
+  padding: 3px 8px;
+  margin-right: 2px;
+  border-radius: 6px;
+  cursor: pointer;
 }
 
-.drawer-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  font-weight: 600;
+.gutter-back:hover {
+  background: rgba(31, 33, 38, 0.05);
+  color: var(--ink);
 }
 
-.drawer-sub {
+.gutter-evidence-sub {
   font-size: 12px;
   color: var(--muted);
-  margin: 2px 0 14px;
+  margin: -4px 2px 12px;
+}
+
+.fmt-bar {
+  position: fixed;
+  transform: translate(-50%, calc(-100% - 10px));
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 5px 7px;
+  box-shadow: 0 8px 26px rgba(31, 33, 38, 0.13);
+  font-family: var(--sans);
+  z-index: 32;
+  animation: fadeIn 0.12s ease-out;
+}
+
+.fmt-bar button {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: #4a4d55;
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.fmt-bar button:hover {
+  background: rgba(31, 33, 38, 0.06);
+  color: var(--ink);
+}
+
+.fmt-bar .fmt-h {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.fmt-sep {
+  width: 1px;
+  height: 18px;
+  background: var(--line);
+  margin: 0 5px;
+}
+
+.fmt-hint {
+  font-size: 11px;
+  color: var(--muted);
+  padding-right: 5px;
+  white-space: nowrap;
+}
+
+/* same block sizing as the editor */
+.hv-kind-h2 {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.4;
+  margin: 36px 0 14px;
+}
+
+.hv-kind-h3 {
+  font-size: 18.5px;
+  font-weight: 600;
+  line-height: 1.45;
+  margin: 28px 0 10px;
+}
+
+.hv-kind-bullet,
+.hv-kind-todo {
+  margin-bottom: 10px;
+}
+
+.hv-kind-bullet::before {
+  content: '•  ';
+}
+
+.hv-kind-todo::before {
+  content: '☐  ';
+  color: var(--muted);
 }
 
 .quote {
   border: 1px solid var(--line);
+  border-left: 3px solid var(--blue);
   border-radius: 10px;
-  padding: 10px 12px;
+  padding: 11px 13px;
   margin-bottom: 10px;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--soft);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--card);
+  box-shadow: 0 1px 3px rgba(31, 33, 38, 0.05);
 }
 
 .quote-chip {

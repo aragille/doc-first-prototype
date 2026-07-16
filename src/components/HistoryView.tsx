@@ -1,4 +1,5 @@
 import { diffBounds } from '../text';
+import { ParaSnapshot } from '../types';
 
 /** A point-in-time snapshot of the document. Created on load, on idle
  *  checkpoints, on accepted suggestions, and on restores. */
@@ -6,7 +7,7 @@ export interface VersionSnap {
   id: number;
   at: number;
   title: string;
-  paras: Array<{ id: string; text: string }>;
+  paras: ParaSnapshot[];
   restoredFrom?: number;
 }
 
@@ -58,6 +59,7 @@ export function HistoryView({ versions, selectedId, onSelect, onBack, onRestore 
           {selected.paras.map((p) => (
             <ParaDiff
               key={p.id}
+              kind={p.kind}
               prevText={prev ? prevMap.get(p.id) ?? null : p.text}
               text={p.text}
             />
@@ -106,18 +108,27 @@ export function HistoryView({ versions, selectedId, onSelect, onBack, onRestore 
 
 /** Paragraph rendered as a diff against its previous version: additions
  *  green, removals red and struck — like the reference UI. */
-function ParaDiff({ prevText, text }: { prevText: string | null; text: string }) {
+function ParaDiff({
+  kind,
+  prevText,
+  text,
+}: {
+  kind: ParaSnapshot['kind'];
+  prevText: string | null;
+  text: string;
+}) {
+  const cls = `hv-para hv-kind-${kind}`;
   if (prevText === null) {
     return (
-      <p className="hv-para">
+      <p className={cls}>
         <ins>{text}</ins>
       </p>
     );
   }
-  if (prevText === text) return <p className="hv-para">{text}</p>;
+  if (prevText === text) return <p className={cls}>{text}</p>;
   const d = diffBounds(prevText, text);
   return (
-    <p className="hv-para">
+    <p className={cls}>
       {text.slice(0, d.start)}
       {d.start < d.oldEnd && <del>{prevText.slice(d.start, d.oldEnd)}</del>}
       {d.start < d.newEnd && <ins>{text.slice(d.start, d.newEnd)}</ins>}

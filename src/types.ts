@@ -47,10 +47,35 @@ export interface Provenance {
   acceptedAt: number;
 }
 
+/** Block types: body text, headings, bullets, checklist items. */
+export type BlockKind = 'p' | 'h2' | 'h3' | 'bullet' | 'todo';
+
+export type InlineStyle = 'b' | 'i' | 'u' | 's';
+
+/** Inline formatting stored as ranges over the plain text — the text itself
+ *  stays plain, so anchors and offsets are unaffected by styling. */
+export interface FormatRange {
+  start: number;
+  end: number;
+  style: InlineStyle;
+}
+
 export interface Paragraph {
   id: string;
   text: string;
+  kind: BlockKind;
+  done: boolean; // for todo blocks
+  formats: FormatRange[];
   provenance: Provenance | null;
+}
+
+/** What a version snapshot stores per paragraph. */
+export interface ParaSnapshot {
+  id: string;
+  text: string;
+  kind: BlockKind;
+  done: boolean;
+  formats: FormatRange[];
 }
 
 export interface DocState {

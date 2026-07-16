@@ -1,6 +1,6 @@
 /** All "AI" content in the prototype is hardcoded here. No models, no API. */
 
-import { AppState, Anchor, Mark, Suggestion } from './types';
+import { AppState, Anchor, BlockKind, Mark, Paragraph, Suggestion } from './types';
 
 const P1 =
   "Signups grew 41% last quarter, but week-4 retention hasn't moved since March. The growth story is intact; the value story isn't.";
@@ -10,7 +10,7 @@ const P3 =
   'To address this we will invest in a comprehensive program of onboarding improvements over the coming quarters.';
 const P4 = 'Open questions: pricing impact of ';
 const P5 =
-  'What the data says: activation correlates with connecting a data source in week one. Users who connect Slack or HubSpot in their first session retain at more than twice the baseline.';
+  'Activation correlates with connecting a data source in week one. Users who connect Slack or HubSpot in their first session retain at more than twice the baseline.';
 const P6 =
   'Pricing experiments from Q2 — the annual discount and usage tiers — moved conversion by less than one point, so we are deprioritizing pricing work this quarter.';
 const P7 =
@@ -140,21 +140,38 @@ function seedSuggestions(): Suggestion[] {
 
 /** In demo mode we seed one fewer queued mark so the demo's contradiction
  *  mark fits inside the visible-marks cap. */
+function block(
+  id: string,
+  text: string,
+  kind: BlockKind = 'p',
+  extra?: { done?: boolean; bold?: string[] }
+): Paragraph {
+  const formats = (extra?.bold ?? []).flatMap((phrase) => {
+    const start = text.indexOf(phrase);
+    return start === -1 ? [] : [{ start, end: start + phrase.length, style: 'b' as const }];
+  });
+  return { id, text, kind, done: extra?.done ?? false, formats, provenance: null };
+}
+
 export function seedState(demoMode: boolean): AppState {
   return {
     doc: {
       title: 'Q3 strategy — activation over acquisition',
       paras: [
-        { id: 'p1', text: P1, provenance: null },
-        { id: 'p2', text: P2, provenance: null },
-        { id: 'p3', text: P3, provenance: null },
-        { id: 'p4', text: P4, provenance: null },
-        { id: 'p5', text: P5, provenance: null },
-        { id: 'p6', text: P6, provenance: null },
-        { id: 'p7', text: P7, provenance: null },
-        { id: 'p8', text: P8, provenance: null },
-        { id: 'p9', text: P9, provenance: null },
-        { id: 'p10', text: P10, provenance: null },
+        block('p1', P1, 'p', { bold: ['41%'] }),
+        block('p2', P2),
+        block('p3', P3),
+        block('p4', P4),
+        block('h-data', 'What we know', 'h2'),
+        block('p5', P5),
+        block('p6', P6),
+        block('p7', P7),
+        block('h-risk', 'Risks & timing', 'h2'),
+        block('p8', P8),
+        block('p9', P9),
+        block('p10', P10, 'p', { bold: ['Decision needed by Jul 25'] }),
+        block('t1', 'Commit the Aug 15 integrations scope with the pod', 'todo'),
+        block('t2', 'Sanity-check the cohort join with the data team', 'todo', { done: true }),
       ],
     },
     ai: {
