@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef, useState } from 'react';
 import { FormatRange, Paragraph } from '../types';
-import { caretOffset, placeCaretAtEnd, rectsForRange } from '../text';
+import { caretOffset, offsetFromPoint, placeCaretAtEnd, rectsForRange } from '../text';
 import { buildParaHtml, parseEditable } from '../richtext';
 
 /** A decoration painted BEHIND the text (provenance tint, anchor highlight,
@@ -32,6 +32,9 @@ interface Props {
   /** Fired on click with the caret's character offset — used to light up
    *  the margin note whose anchor contains the caret. */
   onCaretAt: (paraId: string, offset: number) => void;
+  /** Fired while hovering with the character offset under the pointer
+   *  (null when leaving) — soft-highlights the related signal. */
+  onHoverAt: (paraId: string, offset: number | null) => void;
   onFocusPara: (paraId: string) => void;
   onBlurPara: (paraId: string) => void;
   onEscape: () => void;
@@ -65,6 +68,7 @@ export function EditablePara({
   onSplit,
   onMergeBack,
   onCaretAt,
+  onHoverAt,
   onFocusPara,
   onBlurPara,
   onEscape,
@@ -157,6 +161,10 @@ export function EditablePara({
           const off = caretOffset(e.currentTarget);
           if (off !== null) onCaretAt(para.id, off);
         }}
+        onMouseMove={(e) => {
+          onHoverAt(para.id, offsetFromPoint(e.currentTarget, e.clientX, e.clientY));
+        }}
+        onMouseLeave={() => onHoverAt(para.id, null)}
         onKeyDown={(e) => {
           if (e.key === 'Enter') {
             // split the paragraph at the caret

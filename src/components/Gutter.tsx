@@ -33,6 +33,9 @@ interface Props {
   gear: Gear;
   /** Suggestion whose anchored text currently holds the caret. */
   highlightedSugId: string | null;
+  /** Signal/suggestion whose anchored text is hovered — soft highlight. */
+  hoveredId: string | null;
+  onHoverNote: (id: string | null) => void;
   dispatch: Dispatch<Action>;
   gutterRef: RefObject<HTMLDivElement>;
   registerNote: (id: string, el: HTMLDivElement | null) => void;
@@ -50,6 +53,8 @@ export function Gutter({
   suggestions,
   gear,
   highlightedSugId,
+  hoveredId,
+  onHoverNote,
   dispatch,
   gutterRef,
   registerNote,
@@ -119,6 +124,8 @@ export function Gutter({
           <MarkNote
             key={item.id}
             mark={item.mark}
+            hovered={hoveredId === item.id}
+            onHover={(h) => onHoverNote(h ? item.id : null)}
             dispatch={dispatch}
             onOpenEvidence={onOpenEvidence}
             registerEl={(el) => registerNote(item.id, el)}
@@ -128,6 +135,8 @@ export function Gutter({
             key={item.id}
             sug={item.sug}
             highlighted={highlightedSugId === item.id}
+            hovered={hoveredId === item.id}
+            onHover={(h) => onHoverNote(h ? item.id : null)}
             onOpen={() => onOpenSuggestion(item.id)}
             registerEl={(el) => registerNote(item.id, el)}
           />

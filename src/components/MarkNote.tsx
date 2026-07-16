@@ -11,6 +11,8 @@ const KIND_LABEL: Record<Mark['kind'], string> = {
 
 interface Props {
   mark: Mark;
+  hovered: boolean;
+  onHover: (hovering: boolean) => void;
   dispatch: Dispatch<Action>;
   onOpenEvidence: (mark: Mark) => void;
   registerEl: (el: HTMLDivElement | null) => void;
@@ -18,7 +20,7 @@ interface Props {
 
 /** An insight note: kind pill, always-visible text (no hover required),
  *  quiet actions. Clicking it highlights the anchored text in the document. */
-export function MarkNote({ mark, dispatch, onOpenEvidence, registerEl }: Props) {
+export function MarkNote({ mark, hovered, onHover, dispatch, onOpenEvidence, registerEl }: Props) {
   const [replying, setReplying] = useState(false);
 
   const sendReply = (text: string) => {
@@ -30,8 +32,10 @@ export function MarkNote({ mark, dispatch, onOpenEvidence, registerEl }: Props) 
 
   return (
     <div
-      className={`note ${focused ? 'note-focused' : ''}`}
+      className={`note ${focused ? 'note-focused' : ''} ${hovered ? 'note-hover' : ''}`}
       ref={registerEl}
+      onMouseEnter={() => onHover(true)}
+      onMouseLeave={() => onHover(false)}
       onClick={() =>
         dispatch(
           focused ? { type: 'user/closeMark', id: mark.id } : { type: 'user/openMark', id: mark.id }

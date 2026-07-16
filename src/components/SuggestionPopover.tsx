@@ -2,6 +2,7 @@ import { Dispatch, useEffect, useRef, useState } from 'react';
 import { Suggestion } from '../types';
 import { Action } from '../reducer';
 import { NoteInput } from './NoteInput';
+import { SparkIcon } from './SparkIcon';
 
 interface Props {
   sug: Suggestion;
@@ -66,7 +67,12 @@ export function SuggestionPopover({ sug, x, y, above, autoFocus, dispatch, onClo
         }
       }}
     >
-      <p className="sug-pop-prop">{sug.proposedText}</p>
+      <p className="sug-pop-prop">
+        <span className="sug-spark">
+          <SparkIcon size={15} />
+        </span>
+        {sug.proposedText}
+      </p>
       <p className="sug-pop-rationale">{sug.rationale}</p>
       <div className="sug-pop-actions">
         <button className="btn-primary" onClick={accept}>

@@ -119,6 +119,36 @@ export function placeCaretAt(el: HTMLElement, offset: number): void {
   sel.addRange(range);
 }
 
+/** Character offset under a pointer position (for hover detection). */
+export function offsetFromPoint(el: HTMLElement, x: number, y: number): number | null {
+  const doc = document as Document & {
+    caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null;
+    caretRangeFromPoint?: (x: number, y: number) => Range | null;
+  };
+  let node: Node | null = null;
+  let off = 0;
+  if (doc.caretPositionFromPoint) {
+    const p = doc.caretPositionFromPoint(x, y);
+    if (!p) return null;
+    node = p.offsetNode;
+    off = p.offset;
+  } else if (doc.caretRangeFromPoint) {
+    const r = doc.caretRangeFromPoint(x, y);
+    if (!r) return null;
+    node = r.startContainer;
+    off = r.startOffset;
+  }
+  if (!node || !el.contains(node)) return null;
+  const pre = document.createRange();
+  pre.selectNodeContents(el);
+  try {
+    pre.setEnd(node, off);
+  } catch {
+    return null;
+  }
+  return pre.toString().length;
+}
+
 export function placeCaretAtEnd(el: HTMLElement): void {
   const range = document.createRange();
   range.selectNodeContents(el);

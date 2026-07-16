@@ -9,11 +9,14 @@ interface Props {
   shimmer: Anchor | null;
   /** Range the ask line is currently attached to — stays visibly selected. */
   asking: Anchor | null;
+  /** Signal/suggestion currently hovered (text or note side). */
+  hoveredId: string | null;
   isFirst: boolean;
   onTyped: (paraId: string, text: string, formats: Paragraph['formats']) => void;
   onSplit: (paraId: string, offset: number) => void;
   onMergeBack: (paraId: string) => void;
   onCaretAt: (paraId: string, offset: number) => void;
+  onHoverAt: (paraId: string, offset: number | null) => void;
   onToggleTodo: (paraId: string) => void;
   onFocusPara: (paraId: string) => void;
   onBlurPara: (paraId: string) => void;
@@ -34,11 +37,13 @@ export function ParaBlock({
   suggestion,
   shimmer,
   asking,
+  hoveredId,
   isFirst,
   onTyped,
   onSplit,
   onMergeBack,
   onCaretAt,
+  onHoverAt,
   onToggleTodo,
   onFocusPara,
   onBlurPara,
@@ -59,18 +64,18 @@ export function ParaBlock({
     if (suggestion && suggestion.state === 'pending') {
       list.push({
         key: `sug-${suggestion.id}`,
-        className: 'ov-suggestion',
+        className: `ov-suggestion${hoveredId === suggestion.id ? ' ov-sug-hover' : ''}`,
         start: suggestion.anchor.start,
         end: suggestion.anchor.end,
       });
     }
     // Every visible mark tints its anchored text in its kind color —
-    // stronger when its note is focused.
+    // stronger when its note is focused or the text is hovered.
     for (const m of marks) {
       if (m.state === 'queued') continue;
       list.push({
         key: `mark-${m.id}`,
-        className: `ov-mark-${m.kind}${m.state === 'open' ? ' ov-open' : ''}`,
+        className: `ov-mark-${m.kind}${m.state === 'open' || m.id === hoveredId ? ' ov-open' : ''}`,
         start: m.anchor.start,
         end: m.anchor.end,
       });
@@ -82,7 +87,7 @@ export function ParaBlock({
       list.push({ key: 'shimmer', className: 'ov-shimmer', start: shimmer.start, end: shimmer.end });
     }
     return list;
-  }, [para.provenance, suggestion, marks, asking, shimmer]);
+  }, [para.provenance, suggestion, marks, asking, hoveredId, shimmer]);
 
   return (
     <section
@@ -111,6 +116,7 @@ export function ParaBlock({
           onSplit={onSplit}
           onMergeBack={onMergeBack}
           onCaretAt={onCaretAt}
+          onHoverAt={onHoverAt}
           onFocusPara={onFocusPara}
           onBlurPara={onBlurPara}
           onEscape={onEscape}

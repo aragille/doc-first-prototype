@@ -26,6 +26,7 @@ import { CommandLine } from './components/CommandLine';
 import { TitleEditor } from './components/TitleEditor';
 import { Sidebar } from './components/Sidebar';
 import { DocList } from './components/DocList';
+import { SparkIcon } from './components/SparkIcon';
 import { useDemo } from './demo';
 
 const IDLE_MS = 4000; // writing → review after ~4s of stillness
@@ -72,6 +73,7 @@ export default function App() {
   const [cmdk, setCmdk] = useState<{ anchor: Anchor; x: number; y: number } | null>(null);
   const [shimmer, setShimmer] = useState<Anchor | null>(null);
   const [highlightedSugId, setHighlightedSugId] = useState<string | null>(null);
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
   const openMarkId = state.ai.marks.find((m) => m.state === 'open')?.id ?? null;
   const [sugPopover, setSugPopover] = useState<{
     sugId: string;
@@ -243,15 +245,47 @@ export default function App() {
     if (gear === 'review') pushVersion();
   }, [gear, pushVersion]);
 
-  // Scroll ONLY the insights panel (never the page) to bring a note into view.
+  // Scroll ONLY the panel, and only as far as needed: a note below the fold
+  // rises to sit at the bottom edge; one above the fold drops to the top
+  // edge; a fully visible note doesn't move at all.
   const scrollGutterToNote = useCallback((noteId: string) => {
     const el = noteEls.current.get(noteId);
     const g = gutterRef.current;
     if (!el || !g) return;
-    g.scrollTo({
-      top: Math.max(0, el.offsetTop - Math.max(72, g.clientHeight / 3)),
-      behavior: 'smooth',
-    });
+    const pad = 12;
+    const gr = g.getBoundingClientRect();
+    const er = el.getBoundingClientRect();
+    if (er.top < gr.top + pad) {
+      g.scrollTo({ top: g.scrollTop + (er.top - gr.top) - pad, behavior: 'smooth' });
+    } else if (er.bottom > gr.bottom - pad) {
+      g.scrollTo({ top: g.scrollTop + (er.bottom - gr.bottom) + pad, behavior: 'smooth' });
+    }
+  }, []);
+
+  // Hovering anchored text soft-highlights its signal card (no scrolling).
+  const onHoverAt = useCallback((paraId: string, offset: number | null) => {
+    let next: string | null = null;
+    if (offset !== null) {
+      const { marks, suggestions } = stateRef.current.ai;
+      const hitMark = marks.find(
+        (m) =>
+          m.state !== 'queued' &&
+          m.anchor.paraId === paraId &&
+          offset >= m.anchor.start &&
+          offset <= m.anchor.end
+      );
+      const hitSug = hitMark
+        ? undefined
+        : suggestions.find(
+            (s) =>
+              s.state === 'pending' &&
+              s.anchor.paraId === paraId &&
+              offset >= s.anchor.start &&
+              offset <= s.anchor.end
+          );
+      next = hitMark?.id ?? hitSug?.id ?? null;
+    }
+    setHoveredId((prev) => (prev === next ? prev : next));
   }, []);
 
   // Open the decision popover over a suggestion's anchored text. The margin
@@ -783,11 +817,13 @@ export default function App() {
                 )}
                 shimmer={shimmer && shimmer.paraId === para.id ? shimmer : null}
                 asking={cmdk && cmdk.anchor.paraId === para.id ? cmdk.anchor : null}
+                hoveredId={hoveredId}
                 isFirst={i === 0}
                 onTyped={onTyped}
                 onSplit={onSplit}
                 onMergeBack={onMergeBack}
                 onCaretAt={onCaretAt}
+                onHoverAt={onHoverAt}
                 onToggleTodo={onToggleTodo}
                 onFocusPara={onFocusPara}
                 onBlurPara={onBlurPara}
@@ -807,6 +843,8 @@ export default function App() {
         suggestions={state.ai.suggestions}
         gear={gear}
         highlightedSugId={highlightedSugId}
+        hoveredId={hoveredId}
+        onHoverNote={setHoveredId}
         dispatch={appDispatch}
         gutterRef={gutterRef}
         registerNote={registerNote}
@@ -875,7 +913,7 @@ export default function App() {
           </button>
           <span className="fmt-sep" />
           <button className="fmt-ask" onClick={openCmdline}>
-            ✦ Ask Noctua
+            <SparkIcon size={14} /> Ask Noctua
           </button>
         </div>
       )}
