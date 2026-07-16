@@ -1,0 +1,1200 @@
+/* Doc-first AI workspace — visual language matched to the existing product
+   (white surfaces, soft borders, tinted pills, purple accent).
+
+   Layout policy: AI presence NEVER changes the size or position of anything
+   in the document column. Notes live in an absolutely-positioned margin
+   gutter; anchors are tints painted behind the text. Gear transitions are
+   opacity-only. Geometry changes only from user actions. */
+
+:root {
+  --gutter-w: 304px;
+  --left-rail: 496px; /* sidebar 256 + workspace list 240 */
+  --bg: #ffffff;
+  --ink: #1f2126;
+  --soft: #6e7178;
+  --muted: #9b9ea7;
+  --line: #e9e9ee;
+  --card: #ffffff;
+  --accent: #7c6ff0;
+  --accent-bg: #eeebfd;
+  --red: #e5484d;
+  --red-bg: #fdecec;
+  --blue: #4e7fe0;
+  --blue-bg: #eaf1fe;
+  --amber: #c7791b;
+  --amber-bg: #fdf3e5;
+  --green: #30a46c;
+  --green-bg: #e6f7ee;
+  --prov-bg: rgba(48, 164, 108, 0.12);
+  --sans: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+  --serif: 'Iowan Old Style', 'Palatino Linotype', Palatino, Georgia, 'Times New Roman', serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(124, 111, 240, 0.22);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- left nav (static, matches the product shell) ---------- */
+
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 256px;
+  background: #fcfcfd;
+  border-right: 1px solid var(--line);
+  font-family: var(--sans);
+  padding: 16px 14px;
+  display: flex;
+  flex-direction: column;
+  z-index: 15;
+}
+
+.side-org {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 22px;
+}
+
+.org-avatar {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: #17181c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+
+.org-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.side-dots {
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.side-label {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 0 8px 8px;
+}
+
+.side-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #3f4248;
+  cursor: pointer;
+  user-select: none;
+}
+
+.side-item svg {
+  color: var(--muted);
+  flex: none;
+}
+
+.side-item:hover {
+  background: rgba(31, 33, 38, 0.04);
+}
+
+.side-item.side-active {
+  background: var(--accent-bg);
+  color: var(--accent);
+  font-weight: 500;
+}
+
+.side-item.side-active svg {
+  color: var(--accent);
+}
+
+.side-product {
+  font-weight: 500;
+  color: var(--ink);
+}
+
+.side-product .chev {
+  margin-left: auto;
+}
+
+.side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 2px 0 14px;
+}
+
+.side-new {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ink);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 9px;
+  cursor: pointer;
+}
+
+.side-new:hover {
+  background: rgba(31, 33, 38, 0.03);
+}
+
+.side-spacer {
+  flex: 1;
+}
+
+.side-footer {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  padding: 6px 4px;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8d5c4, #d5b895);
+  color: #7a5c3e;
+  font-size: 11px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+
+.user-meta {
+  flex: 1;
+  min-width: 0;
+}
+
+.user-name {
+  font-size: 12.5px;
+  font-weight: 500;
+}
+
+.user-mail {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- workspace list panel (like the Notes list) ---------- */
+
+.doclist {
+  position: fixed;
+  top: 0;
+  left: 256px;
+  bottom: 0;
+  width: 240px;
+  background: #fff;
+  border-right: 1px solid var(--line);
+  font-family: var(--sans);
+  padding: 16px 12px;
+  overflow-y: auto;
+  z-index: 14;
+}
+
+.doclist-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 4px 12px;
+}
+
+.doclist-title-main {
+  font-size: 15px;
+  font-weight: 700;
+  flex: 1;
+}
+
+.doclist-plus {
+  color: var(--soft);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.doclist-search {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  background: #f3f3f5;
+  border-radius: 10px;
+  padding: 8px 10px;
+  color: var(--muted);
+  font-size: 12.5px;
+  margin-bottom: 6px;
+  cursor: text;
+}
+
+.doclist-group {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin: 14px 6px 6px;
+}
+
+.doclist-item {
+  padding: 8px 10px;
+  border-radius: 9px;
+  cursor: pointer;
+}
+
+.doclist-item:hover {
+  background: rgba(31, 33, 38, 0.04);
+}
+
+.doclist-item.active {
+  background: var(--accent-bg);
+}
+
+.doclist-title {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+
+.doclist-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.doclist-item.active .doclist-name {
+  color: var(--accent);
+}
+
+.doclist-title svg {
+  color: var(--muted);
+  flex: none;
+}
+
+.doclist-sub {
+  font-size: 11.5px;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---------- document canvas ---------- */
+
+.doc-shell {
+  margin-left: var(--left-rail);
+  margin-right: var(--gutter-w);
+  padding: 96px 24px 45vh;
+}
+
+.doc-layout {
+  position: relative;
+  max-width: 680px;
+  margin: 0 auto;
+}
+
+.doc-title {
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 6px;
+  outline: none;
+  caret-color: var(--ink);
+}
+
+.doc-meta {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 44px;
+}
+
+.para-block {
+  margin: 0 0 26px;
+}
+
+.para-wrap {
+  position: relative;
+}
+
+.para-editor {
+  font-size: 17.5px;
+  line-height: 1.72;
+  outline: none;
+  white-space: pre-wrap;
+  min-height: 1.72em;
+  position: relative;
+  z-index: 1;
+  caret-color: var(--ink);
+}
+
+/* ---------- tints painted behind the text (never affect layout) ---------- */
+
+.para-overlays {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.para-overlays span {
+  position: absolute;
+  border-radius: 3px;
+  transition: opacity 0.2s ease;
+}
+
+/* Accepted text: green fades fully back to the page — no trace of the
+   change remains in the doc. The revision lives in version history. */
+.ov-provenance {
+  background: transparent;
+  animation: provFade 1.6s ease-out;
+}
+
+@keyframes provFade {
+  from {
+    background: rgba(48, 164, 108, 0.3);
+  }
+  to {
+    background: rgba(48, 164, 108, 0);
+  }
+}
+
+/* Anchored ranges tinted by kind:
+   suggestion purple · question yellow · contradiction red · evidence blue */
+.ov-suggestion {
+  background: rgba(124, 111, 240, 0.13);
+}
+
+.ov-mark-evidence {
+  background: rgba(78, 127, 224, 0.13);
+}
+
+.ov-mark-contradiction {
+  background: rgba(229, 72, 77, 0.12);
+}
+
+.ov-mark-question {
+  background: rgba(245, 193, 7, 0.22);
+}
+
+/* stronger when the note is focused */
+.ov-mark-evidence.ov-open {
+  background: rgba(78, 127, 224, 0.26);
+}
+
+.ov-mark-contradiction.ov-open {
+  background: rgba(229, 72, 77, 0.24);
+}
+
+.ov-mark-question.ov-open {
+  background: rgba(245, 193, 7, 0.4);
+}
+
+.ov-shimmer {
+  background: linear-gradient(
+    100deg,
+    rgba(124, 111, 240, 0) 25%,
+    rgba(124, 111, 240, 0.3) 50%,
+    rgba(124, 111, 240, 0) 75%
+  );
+  background-size: 220% 100%;
+  animation: shimmerSweep 0.8s linear infinite;
+}
+
+@keyframes shimmerSweep {
+  from {
+    background-position: 130% 0;
+  }
+  to {
+    background-position: -130% 0;
+  }
+}
+
+/* the room gets quieter: anchor tints recede while writing
+   (provenance and shimmer are exempt — they're user-driven) */
+.gear-writing .para-overlays span:not(.ov-provenance):not(.ov-shimmer) {
+  opacity: 0.35;
+}
+
+/* ---------- the insights panel: the AI's only territory ---------- */
+
+.gutter {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: var(--gutter-w);
+  padding: 18px 16px 24px;
+  overflow-y: auto;
+  border-left: 1px solid var(--line);
+  background: #fff;
+  z-index: 10;
+}
+
+.gutter::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gutter::-webkit-scrollbar-thumb {
+  background: #e7e7ec;
+  border-radius: 4px;
+}
+
+.gutter-head {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 2px 12px;
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  transition: opacity 0.2s ease;
+}
+
+.gutter-count {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+/* the room gets quieter: notes recede while writing (opacity only) */
+.gear-writing .gutter .note,
+.gear-writing .gutter-head {
+  opacity: 0.25;
+}
+
+.note {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  box-shadow: 0 1px 2px rgba(31, 33, 38, 0.03);
+  cursor: default;
+  animation: fadeIn 0.2s ease-out;
+  transition: opacity 0.2s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.note-focused,
+.sug-note:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 111, 240, 0.15);
+}
+
+.note-head {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.pill {
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 8px;
+  letter-spacing: 0.01em;
+}
+
+.pill-evidence {
+  color: var(--blue);
+  background: var(--blue-bg);
+}
+
+.pill-contradiction {
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+.pill-question {
+  color: #a16207;
+  background: #fdf6dc;
+}
+
+.pill-suggestion {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.note-source {
+  font-size: 11px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.note-text {
+  margin: 0 0 8px;
+  line-height: 1.45;
+  color: var(--ink);
+}
+
+.note-rationale {
+  margin: 6px 0 8px;
+  line-height: 1.4;
+  font-size: 11.5px;
+  color: var(--muted);
+}
+
+.sug-note {
+  cursor: pointer;
+}
+
+.note-go {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.sug-note:hover .note-go {
+  opacity: 1;
+}
+
+.sug-prop {
+  margin: 0;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--green-bg);
+  border-radius: 5px;
+  padding: 4px 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---------- suggestion popover (the decision happens at the text) ---------- */
+
+.sug-popover {
+  position: fixed;
+  z-index: 35;
+  width: 384px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 13px;
+  font-family: var(--sans);
+  box-shadow: 0 10px 34px rgba(31, 33, 38, 0.13);
+  outline: none;
+  animation: fadeIn 0.15s ease-out;
+}
+
+.sug-popover.above {
+  transform: translateY(-100%);
+}
+
+.sug-pop-prop {
+  margin: 0 0 6px;
+  font-family: var(--serif);
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--ink);
+  background: var(--green-bg);
+  border-radius: 6px;
+  padding: 6px 8px;
+}
+
+.sug-pop-rationale {
+  margin: 0 0 9px;
+  font-size: 11.5px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
+.sug-pop-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.sug-pop-actions button {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--soft);
+  background: none;
+  border: none;
+  padding: 5px 10px;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.sug-pop-actions button:hover {
+  background: rgba(31, 33, 38, 0.05);
+  color: var(--ink);
+}
+
+.sug-pop-actions .btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.sug-pop-actions .btn-primary:hover {
+  background: #6c5fe0;
+  color: #fff;
+}
+
+.sug-pop-actions .btn-primary kbd {
+  background: transparent;
+  border-color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.9);
+}
+
+.note-actions {
+  display: flex;
+  gap: 2px;
+  align-items: center;
+}
+
+.note-actions button,
+.drawer-head button {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--soft);
+  background: none;
+  border: none;
+  padding: 3px 7px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.note-actions button:hover,
+.drawer-head button:hover {
+  background: rgba(31, 33, 38, 0.05);
+  color: var(--ink);
+}
+
+.note-actions .btn-accent {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.note-actions .btn-accent:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+}
+
+kbd {
+  font-family: var(--sans);
+  font-size: 9.5px;
+  color: var(--muted);
+  border: 1px solid var(--line);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  padding: 0 4px;
+  margin-left: 5px;
+  background: #fff;
+}
+
+.note-input {
+  font-family: var(--sans);
+  font-size: 12px;
+  width: 100%;
+  margin-top: 8px;
+  padding: 6px 9px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  outline: none;
+  background: var(--card);
+  color: var(--ink);
+}
+
+.note-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(124, 111, 240, 0.12);
+}
+
+.thread {
+  border-top: 1px solid var(--line);
+  margin: 6px 0 8px;
+  padding-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.thread-msg {
+  margin: 0;
+  line-height: 1.4;
+  color: var(--soft);
+}
+
+.thread-msg.you {
+  color: var(--ink);
+}
+
+.thread-msg span {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  margin-right: 6px;
+}
+
+/* ---------- chrome (deliberately minimal) ---------- */
+
+.top-chrome {
+  position: fixed;
+  top: 0;
+  right: var(--gutter-w);
+  padding: 16px 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--sans);
+  font-size: 12px;
+  z-index: 20;
+}
+
+.chip {
+  color: var(--soft);
+  background: rgba(31, 33, 38, 0.05);
+  border-radius: 999px;
+  padding: 3px 10px;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.gear-ind {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 999px;
+  padding: 3px 10px;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.gear-ind-writing {
+  color: var(--soft);
+  background: rgba(31, 33, 38, 0.05);
+}
+
+.gear-ind-review {
+  color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.gear-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.chrome-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--soft);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.chrome-btn:hover {
+  background: rgba(31, 33, 38, 0.05);
+  color: var(--ink);
+}
+
+.chrome-shared {
+  cursor: default;
+}
+
+/* ---------- version history ---------- */
+
+.hv {
+  margin-left: var(--left-rail);
+  font-family: var(--sans);
+}
+
+.hv-bar {
+  position: fixed;
+  top: 0;
+  left: var(--left-rail);
+  right: 0;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 20px;
+  background: rgba(255, 255, 255, 0.94);
+  backdrop-filter: blur(4px);
+  z-index: 20;
+}
+
+.hv-back {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--soft);
+  background: none;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.hv-back:hover {
+  background: rgba(31, 33, 38, 0.05);
+  color: var(--ink);
+}
+
+.hv-title {
+  flex: 1;
+  text-align: center;
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.hv-restore {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: #fff;
+  background: #17181c;
+  border: none;
+  border-radius: 10px;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.hv-restore:hover {
+  background: #2a2b31;
+}
+
+.hv-body {
+  display: flex;
+}
+
+.hv-doc {
+  flex: 1;
+  min-width: 0;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 92px 32px 30vh;
+  font-family: var(--serif);
+}
+
+.hv-doc-title {
+  font-size: 27px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 24px;
+}
+
+.hv-para {
+  font-size: 17.5px;
+  line-height: 1.72;
+  margin: 0 0 26px;
+}
+
+.hv-para ins {
+  background: rgba(48, 164, 108, 0.16);
+  text-decoration: none;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.hv-para del {
+  background: rgba(229, 72, 77, 0.11);
+  text-decoration: line-through;
+  text-decoration-color: rgba(229, 72, 77, 0.5);
+  text-decoration-thickness: 1px;
+  border-radius: 3px;
+  padding: 0 1px;
+}
+
+.hv-rail {
+  width: 320px;
+  flex: none;
+  border-left: 1px solid var(--line);
+  padding: 72px 14px 24px;
+  height: 100vh;
+  position: sticky;
+  top: 0;
+  overflow-y: auto;
+}
+
+.hv-date {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--soft);
+  margin: 16px 8px 8px;
+}
+
+.hv-card {
+  position: relative;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  padding: 10px 12px 12px;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.hv-card:hover {
+  background: rgba(31, 33, 38, 0.03);
+}
+
+.hv-card.sel {
+  background: #fff;
+  border-color: var(--line);
+  box-shadow: 0 4px 16px rgba(31, 33, 38, 0.08);
+}
+
+.hv-card-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hv-time {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hv-chip {
+  font-size: 10.5px;
+  color: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.hv-dots {
+  margin-left: auto;
+  color: var(--muted);
+  opacity: 0;
+}
+
+.hv-card.sel .hv-dots {
+  opacity: 1;
+}
+
+.hv-snippet {
+  margin: 5px 0 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--soft);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.hv-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #e8d5c4, #d5b895);
+  color: #7a5c3e;
+  font-size: 9px;
+  font-weight: 600;
+  display: grid;
+  place-items: center;
+}
+
+.pill,
+.chip,
+.gear-ind {
+  white-space: nowrap;
+  line-height: 1.6;
+}
+
+/* bottom-right hint */
+.cmdk-hint {
+  position: fixed;
+  right: calc(var(--gutter-w) + 16px);
+  bottom: 20px;
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--soft);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 13px;
+  box-shadow: 0 1px 3px rgba(31, 33, 38, 0.06);
+  z-index: 20;
+}
+
+/* ---------- the line (⌘K) ---------- */
+
+.cmdline {
+  position: fixed;
+  z-index: 30;
+}
+
+.cmdline input {
+  font-family: var(--sans);
+  font-size: 13px;
+  width: 348px;
+  padding: 8px 11px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  outline: none;
+  box-shadow: 0 6px 20px rgba(31, 33, 38, 0.1);
+}
+
+.cmdline input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 6px 20px rgba(31, 33, 38, 0.08), 0 0 0 3px rgba(124, 111, 240, 0.12);
+}
+
+/* ---------- evidence drawer (fake) ---------- */
+
+.drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 320px;
+  background: var(--card);
+  border-left: 1px solid var(--line);
+  transform: translateX(100%);
+  transition: transform 0.22s ease;
+  z-index: 40;
+  font-family: var(--sans);
+  padding: 18px;
+  overflow-y: auto;
+}
+
+.drawer.open {
+  transform: translateX(0);
+  box-shadow: -8px 0 30px rgba(31, 33, 38, 0.06);
+}
+
+.drawer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.drawer-sub {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 2px 0 14px;
+}
+
+.quote {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--soft);
+}
+
+.quote-chip {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 10.5px;
+  color: var(--muted);
+  background: rgba(31, 33, 38, 0.05);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+/* ---------- demo HUD ---------- */
+
+.demo-hud {
+  position: fixed;
+  bottom: 20px;
+  left: calc(50% + 128px); /* centered over the doc area between the rails */
+  transform: translateX(-50%);
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--soft);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 7px 14px;
+  box-shadow: 0 1px 3px rgba(31, 33, 38, 0.06);
+  z-index: 30;
+  white-space: nowrap;
+}
+
+.demo-hud strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* On narrower windows the gutter tucks in (the two rails take 496px).
+   Desktop-only prototype; no mobile layout by design. */
+@media (max-width: 1680px) {
+  :root {
+    --gutter-w: 280px;
+  }
+}
+
+@media (max-width: 1500px) {
+  :root {
+    --gutter-w: 252px;
+  }
+
+  .note {
+    font-size: 12px;
+    padding: 9px 10px;
+  }
+}
+
+@media (max-width: 1360px) {
+  :root {
+    --gutter-w: 224px;
+  }
+}
