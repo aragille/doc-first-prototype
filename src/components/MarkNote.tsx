@@ -2,6 +2,7 @@ import { Dispatch, useState } from 'react';
 import { Mark } from '../types';
 import { Action } from '../reducer';
 import { NoteInput } from './NoteInput';
+import { Pill } from './Pill';
 
 const KIND_LABEL: Record<Mark['kind'], string> = {
   evidence: 'Evidence',
@@ -43,8 +44,9 @@ export function MarkNote({ mark, hovered, onHover, dispatch, onOpenEvidence, reg
       }
     >
       <div className="note-head">
-        <span className={`pill pill-${mark.kind}`}>{KIND_LABEL[mark.kind]}</span>
-        <span className="note-source">{mark.sourceLabel}</span>
+        <Pill className={`pill-${mark.kind}`} icon={false}>
+          {KIND_LABEL[mark.kind]}
+        </Pill>
       </div>
       <p className="note-text">{mark.text}</p>
       {mark.thread.length > 0 && (

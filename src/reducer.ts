@@ -28,7 +28,7 @@ import {
 } from './types';
 import { adjustRange, ChangeBounds, diffBounds } from './text';
 import { rebaseFormats, shiftFormats, splitFormats } from './richtext';
-import { CANNED_THREAD_REPLIES } from './canned';
+import { CANNED_THREAD_REPLIES, nextRefinement } from './canned';
 
 /* ---------------- actions ---------------- */
 
@@ -317,16 +317,12 @@ function userReducer(state: AppState, action: UserAction): AppState {
       };
 
     case 'user/refineSuggestion': {
-      const suggestions = state.ai.suggestions.map((s) =>
-        s.id === action.id && s.refined && !s.refineUsed
-          ? {
-              ...s,
-              proposedText: s.refined.proposedText,
-              rationale: s.refined.rationale,
-              refineUsed: true,
-            }
-          : s
-      );
+      // Refining loops forever: scripted step first, then rotating variants.
+      const suggestions = state.ai.suggestions.map((s) => {
+        if (s.id !== action.id) return s;
+        const next = nextRefinement(s);
+        return { ...s, ...next, refineCount: s.refineCount + 1 };
+      });
       return { ...state, ai: { ...state.ai, suggestions } };
     }
 

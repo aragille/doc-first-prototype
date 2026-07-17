@@ -118,7 +118,7 @@ function seedSuggestions(): Suggestion[] {
           'Ship Slack and HubSpot integrations by Aug 15, starting with the 220 accounts that asked for them; success is week-4 retention up 5 points.',
         rationale: 'Adds the first target cohort.',
       },
-      refineUsed: false,
+      refineCount: 0,
     },
     {
       id: 's2',
@@ -133,9 +133,30 @@ function seedSuggestions(): Suggestion[] {
           'Hold the onboarding refresh until September and move its two designers to integration QA for August.',
         rationale: 'Reassigns the freed capacity explicitly.',
       },
-      refineUsed: false,
+      refineCount: 0,
     },
   ];
+}
+
+/* Refining is endless: the first refine uses the scripted proposal, then
+   canned variants rotate. Old variant endings are stripped first so
+   proposals rotate instead of accumulating. */
+const REFINE_VARIANTS = [
+  { suffix: ' Scope it to the 220 accounts that asked.', rationale: 'Narrows to the highest-signal cohort.' },
+  { suffix: ' Measure against the January cohort baseline.', rationale: 'Pins the comparison point.' },
+  { suffix: ' Review at the Aug 15 checkpoint.', rationale: 'Adds an explicit decision point.' },
+  { suffix: ' Name one owner and a weekly check-in.', rationale: 'Makes it someone’s job.' },
+];
+
+export function nextRefinement(s: Suggestion): { proposedText: string; rationale: string } {
+  if (s.refineCount === 0 && s.refined) return s.refined;
+  let base = s.proposedText;
+  for (const v of REFINE_VARIANTS) {
+    if (base.endsWith(v.suffix)) base = base.slice(0, -v.suffix.length);
+  }
+  const idx = (s.refineCount - (s.refined ? 1 : 0)) % REFINE_VARIANTS.length;
+  const v = REFINE_VARIANTS[((idx % REFINE_VARIANTS.length) + REFINE_VARIANTS.length) % REFINE_VARIANTS.length];
+  return { proposedText: base + v.suffix, rationale: v.rationale };
 }
 
 /** In demo mode we seed one fewer queued mark so the demo's contradiction

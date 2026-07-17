@@ -440,7 +440,7 @@ export default function App() {
           proposedText: pick.proposedText,
           rationale: pick.rationale,
           refined: pick.refined,
-          refineUsed: false,
+          refineCount: 0,
         },
       });
       setGear('review'); // the user summoned this — attention is on review
@@ -697,6 +697,7 @@ export default function App() {
       if (hitMark.state !== 'open') dispatch({ type: 'user/openMark', id: hitMark.id });
       setSugPopover(null);
       setHighlightedSugId(null);
+      setDrawerFor(null); // leave any evidence drill-in — show the signal itself
       scrollGutterToNote(hitMark.id);
       return;
     }
@@ -717,6 +718,7 @@ export default function App() {
     // Clicked plain text: everything settles back down.
     setSugPopover(null);
     setHighlightedSugId(null);
+    setDrawerFor(null);
     const open = marks.find((m) => m.state === 'open');
     if (open) dispatch({ type: 'user/closeMark', id: open.id });
   }, [openSugPopover, scrollGutterToNote]);

@@ -1,5 +1,6 @@
 import { Suggestion } from '../types';
 import { SparkIcon } from './SparkIcon';
+import { Pill } from './Pill';
 
 interface Props {
   sug: Suggestion;
@@ -27,7 +28,9 @@ export function SuggestionNote({ sug, highlighted, hovered, onHover, onOpen, reg
       onMouseLeave={() => onHover(false)}
     >
       <div className="note-head">
-        <span className="pill pill-suggestion">Suggestion</span>
+        <Pill className="pill-suggestion" icon={false}>
+          Suggestion
+        </Pill>
         <span className="note-go">Review →</span>
       </div>
       <p className="sug-prop">

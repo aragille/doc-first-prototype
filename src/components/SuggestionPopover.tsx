@@ -23,7 +23,7 @@ interface Props {
 export function SuggestionPopover({ sug, x, y, above, autoFocus, dispatch, onClose }: Props) {
   const [refining, setRefining] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
-  const canRefine = !!sug.refined && !sug.refineUsed;
+  const canRefine = true; // refining loops forever through canned variants
 
   useEffect(() => {
     if (autoFocus) ref.current?.focus({ preventScroll: true });

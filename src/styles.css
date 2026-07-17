@@ -550,16 +550,17 @@ body {
 
 /* ---------- the insights panel: the AI's only territory ---------- */
 
+/* No visible panel: the notes live next to the text, no border or fill.
+   Cards begin at the same vertical spot as the first body paragraph. */
 .gutter {
   position: fixed;
   top: 0;
   right: 0;
   bottom: 0;
   width: var(--gutter-w);
-  padding: 18px 16px 24px;
+  padding: 168px 8px 24px;
   overflow-y: auto;
-  border-left: 1px solid var(--line);
-  background: #fff;
+  background: transparent;
   font-family: var(--sans); /* everything in the panel is UI type, not serif */
   z-index: 10;
 }
@@ -573,51 +574,34 @@ body {
   border-radius: 4px;
 }
 
-.gutter-head {
-  font-family: var(--sans);
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--ink);
-  margin: 0 2px 12px;
-  display: flex;
-  gap: 8px;
-  align-items: baseline;
-  transition: opacity 0.2s ease;
-}
-
-.gutter-count {
-  font-weight: 400;
-  font-size: 12px;
-  color: var(--muted);
-}
 
 
+/* signal cards — flat like the history cards: no borders, no shadows.
+   Rest is transparent with subtle padding; hover/selected is a soft
+   gray rounded fill only. */
 .note {
   position: relative;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 10px 12px;
-  margin-bottom: 10px;
+  background: transparent;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 4px;
   font-family: var(--sans);
   font-size: 12.5px;
-  box-shadow: 0 1px 2px rgba(31, 33, 38, 0.03);
   cursor: pointer;
   animation: fadeIn 0.2s ease-out;
-  transition: opacity 0.2s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: opacity 0.2s ease, background 0.15s ease;
+}
+
+.note:hover,
+.note-hover {
+  background: #f8f8f8;
 }
 
 .note-focused,
 .sug-note:focus {
   outline: none;
-  border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(124, 111, 240, 0.15);
-}
-
-/* soft highlight while the anchored text is hovered */
-.note-hover {
-  border-color: #cfc9f7;
-  background: #fbfaff;
+  background: #f5f5f5;
 }
 
 .ov-suggestion.ov-sug-hover {
@@ -631,12 +615,21 @@ body {
   margin-bottom: 6px;
 }
 
+/* feedback-style status badges: bars icon + label on a soft tint */
 .pill {
-  font-size: 10.5px;
-  font-weight: 600;
-  border-radius: 999px;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  padding: 4px 10px;
   letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.pill svg {
+  flex: none;
 }
 
 .pill-evidence {
@@ -917,16 +910,25 @@ kbd {
 
 /* ---------- chrome (deliberately minimal) ---------- */
 
+/* Sticky top bar over the doc — background so it reads cleanly above text
+   while scrolling, like the version-history header. */
 .top-chrome {
   position: fixed;
   top: 0;
-  right: var(--gutter-w);
-  padding: 16px 20px;
+  left: var(--left-rail);
+  right: 0;
+  height: 52px;
+  padding: 0 20px;
   display: flex;
   gap: 8px;
   align-items: center;
+  justify-content: flex-end;
   font-family: var(--sans);
   font-size: 12px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
   z-index: 20;
 }
 
@@ -1001,13 +1003,15 @@ kbd {
   top: 0;
   left: var(--left-rail);
   right: 0;
-  height: 56px;
+  height: 52px;
   display: flex;
   align-items: center;
   gap: 16px;
   padding: 0 20px;
-  background: rgba(255, 255, 255, 0.94);
-  backdrop-filter: blur(4px);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line);
   z-index: 20;
 }
 
@@ -1097,7 +1101,7 @@ kbd {
   width: var(--gutter-w);
   flex: none;
   border-left: 1px solid var(--line);
-  padding: 72px 14px 24px;
+  padding: 72px 8px 24px;
   height: 100vh;
   position: sticky;
   top: 0;
@@ -1109,26 +1113,24 @@ kbd {
   font-weight: 700;
   letter-spacing: 0.04em;
   color: var(--soft);
-  margin: 16px 8px 8px;
+  margin: 16px 14px 8px;
 }
 
 .hv-card {
   position: relative;
-  border: 1px solid transparent;
   border-radius: 12px;
-  padding: 10px 12px 12px;
-  margin-bottom: 6px;
+  padding: 12px;
+  margin-bottom: 4px;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 .hv-card:hover {
-  background: rgba(31, 33, 38, 0.03);
+  background: #f8f8f8;
 }
 
 .hv-card.sel {
-  background: #fff;
-  border-color: var(--line);
-  box-shadow: 0 4px 16px rgba(31, 33, 38, 0.08);
+  background: #f5f5f5;
 }
 
 .hv-card-head {
@@ -1226,6 +1228,11 @@ kbd {
   padding: 0 8px;
 }
 
+.fmt-bar .fmt-ask:hover {
+  color: var(--accent); /* stays purple */
+  background: var(--accent-bg);
+}
+
 /* ---------- the line (⌘K) ---------- */
 
 .cmdline {
@@ -1253,31 +1260,56 @@ kbd {
 
 /* ---------- evidence: one level deeper inside the Signals panel ---------- */
 
-.gutter-evidence {
-  animation: fadeIn 0.15s ease-out;
+/* Evidence overlay — covers the signals region on top, no animation.
+   Solid fill so signals underneath are hidden without moving. */
+.evidence-overlay {
+  position: fixed;
+  top: 52px; /* sits under the sticky header */
+  right: 0;
+  bottom: 0;
+  width: var(--gutter-w);
+  background: #fff;
+  border-left: 1px solid var(--line);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--sans);
 }
 
-.gutter-back {
-  border: none;
-  background: none;
-  color: var(--soft);
-  font-size: 14px;
-  line-height: 1;
-  padding: 3px 8px;
-  margin-right: 2px;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.gutter-back:hover {
-  background: rgba(31, 33, 38, 0.05);
+.evidence-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 12px 12px;
+  font-size: 13px;
+  font-weight: 700;
   color: var(--ink);
 }
 
-.gutter-evidence-sub {
-  font-size: 12px;
-  color: var(--muted);
-  margin: -4px 2px 12px;
+.evidence-close {
+  border: none;
+  background: none;
+  color: var(--soft);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border-radius: 7px;
+  cursor: pointer;
+}
+
+.evidence-close:hover {
+  background: #f5f5f5;
+  color: var(--ink);
+}
+
+.evidence-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 8px 24px;
 }
 
 .fmt-bar {
@@ -1365,14 +1397,16 @@ kbd {
   color: var(--muted);
 }
 
-/* evidence tickets — like feedback tickets, minimized */
+/* evidence tickets — same card treatment as signals/history */
 .quote {
-  padding: 12px 2px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px;
+  border-radius: 12px;
+  margin-bottom: 4px;
+  transition: background 0.15s ease;
 }
 
-.quote:last-child {
-  border-bottom: none;
+.quote:hover {
+  background: #f8f8f8;
 }
 
 .quote-head {

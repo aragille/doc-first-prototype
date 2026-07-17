@@ -35,9 +35,11 @@ export interface Suggestion {
   rationale: string;
   /** queued → pending. Accepted/rejected suggestions are removed. */
   state: 'queued' | 'pending';
-  /** Scripted second proposal used by "Refine" (no real AI). */
+  /** Scripted second proposal used by the first "Refine" (no real AI). */
   refined: { proposedText: string; rationale: string } | null;
-  refineUsed: boolean;
+  /** How many times this suggestion has been refined — refining is endless;
+   *  after the scripted step, canned variants rotate. */
+  refineCount: number;
 }
 
 /** Faint tint on accepted text. Cleared the moment the user edits inside it. */

@@ -4,6 +4,7 @@ import { Action } from '../reducer';
 import { MarkNote } from './MarkNote';
 import { SuggestionNote } from './SuggestionNote';
 import { EVIDENCE_QUOTES } from '../canned';
+import { Pill } from './Pill';
 
 /** Tiny sentiment face, like the feedback tickets. */
 const Mood = ({ sad }: { sad: boolean }) => (
@@ -90,36 +91,7 @@ export function Gutter({
         if (gear === 'writing') onWake();
       }}
     >
-      {/* Evidence is one level deeper inside the same panel. */}
-      {evidenceFor !== null && (
-        <div className="gutter-evidence">
-          <div className="gutter-head">
-            <button className="gutter-back" onClick={onCloseEvidence} aria-label="Back to signals">
-              ←
-            </button>
-            Evidence
-          </div>
-          <p className="gutter-evidence-sub">{evidenceFor || 'churn interviews'}</p>
-          {EVIDENCE_QUOTES.map((q) => (
-            <div className="quote" key={q.tag}>
-              <div className="quote-head">
-                <Mood sad={q.sad} />
-                <span>{q.ago}</span>
-              </div>
-              <p className="quote-text">{q.quote}</p>
-              <span className={`pill quote-pill tone-${q.tone}`}>{q.tag}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {evidenceFor === null && (
-        <div className="gutter-head">
-          Signals <span className="gutter-count">{items.length}</span>
-        </div>
-      )}
-      {evidenceFor === null &&
-        items.map((item) =>
+      {items.map((item) =>
         item.type === 'mark' ? (
           <MarkNote
             key={item.id}
@@ -141,6 +113,31 @@ export function Gutter({
             registerEl={(el) => registerNote(item.id, el)}
           />
         )
+      )}
+
+      {/* Evidence is an overlay panel sitting on top of the signals — no
+          animation, nothing underneath moves. */}
+      {evidenceFor !== null && (
+        <div className="evidence-overlay">
+          <div className="evidence-bar">
+            <span>Evidence</span>
+            <button className="evidence-close" onClick={onCloseEvidence} aria-label="Close evidence">
+              ✕
+            </button>
+          </div>
+          <div className="evidence-list">
+            {EVIDENCE_QUOTES.map((q) => (
+              <div className="quote" key={q.tag}>
+                <div className="quote-head">
+                  <Mood sad={q.sad} />
+                  <span>{q.ago}</span>
+                </div>
+                <p className="quote-text">{q.quote}</p>
+                <Pill className={`quote-pill tone-${q.tone}`}>{q.tag}</Pill>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   );
