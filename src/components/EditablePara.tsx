@@ -13,6 +13,16 @@ export interface OverlaySpec {
   end: number;
 }
 
+/** A tiny numbered stance badge (e.g. "2✕") rendered as a superscript at the
+ *  START of its anchored range — painted in an overlay layer above the text,
+ *  so the editable stays plain and nothing reflows. */
+export interface BadgeSpec {
+  key: string;
+  className: string;
+  label: string;
+  offset: number;
+}
+
 interface Painted {
   key: string;
   className: string;
@@ -25,6 +35,7 @@ interface Painted {
 interface Props {
   para: Paragraph;
   overlays: OverlaySpec[];
+  badges: BadgeSpec[];
   isFirst: boolean;
   onInput: (paraId: string, text: string, formats: FormatRange[]) => void;
   onSplit: (paraId: string, offset: number) => void;
@@ -63,6 +74,7 @@ function samePaint(a: Painted[], b: Painted[]): boolean {
 export function EditablePara({
   para,
   overlays,
+  badges,
   isFirst,
   onInput,
   onSplit,
@@ -76,6 +88,9 @@ export function EditablePara({
 }: Props) {
   const ref = useRef<HTMLDivElement | null>(null);
   const [painted, setPainted] = useState<Painted[]>([]);
+  const [paintedBadges, setPaintedBadges] = useState<
+    Array<{ key: string; className: string; label: string; left: number; top: number }>
+  >([]);
   const lastHtml = useRef<string | null>(null);
 
   // Keep DOM in sync with state without clobbering the caret. While the
@@ -120,12 +135,38 @@ export function EditablePara({
         });
       }
       setPainted((prev) => (samePaint(prev, next) ? prev : next));
+      const nextBadges = badges.flatMap((b) => {
+        const r = rectsForRange(el, b.offset, Math.min(b.offset + 1, (el.textContent ?? '').length))[0];
+        if (!r) return [];
+        return [
+          {
+            key: b.key,
+            className: b.className,
+            label: b.label,
+            left: r.left - base.left - 3,
+            top: r.top - base.top - 7,
+          },
+        ];
+      });
+      setPaintedBadges((prev) =>
+        prev.length === nextBadges.length &&
+        prev.every(
+          (p, i) =>
+            p.key === nextBadges[i].key &&
+            p.label === nextBadges[i].label &&
+            p.className === nextBadges[i].className &&
+            Math.abs(p.left - nextBadges[i].left) < 0.5 &&
+            Math.abs(p.top - nextBadges[i].top) < 0.5
+        )
+          ? prev
+          : nextBadges
+      );
     };
     compute();
     const ro = new ResizeObserver(compute);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [overlays, para.text, para.formats]);
+  }, [overlays, badges, para.text, para.formats]);
 
   return (
     <div className="para-wrap">
@@ -136,6 +177,13 @@ export function EditablePara({
             className={p.className}
             style={{ left: p.left, top: p.top, width: p.width, height: p.height }}
           />
+        ))}
+      </div>
+      <div className="para-badges" aria-hidden>
+        {paintedBadges.map((b) => (
+          <span key={b.key} className={`anchor-badge ${b.className}`} style={{ left: b.left, top: b.top }}>
+            {b.label}
+          </span>
         ))}
       </div>
       <div

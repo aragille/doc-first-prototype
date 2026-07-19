@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Anchor, BlockKind, FormatRange, Gear, Mark } from './types';
 import { Action, rootReducer } from './reducer';
-import { CMDK_POOL, seedState } from './canned';
+import { CMDK_POOL, DOC_ASK_POOL, docAskMark, seedState } from './canned';
+import { AskBar } from './components/AskBar';
 import { placeCaretAt, placeCaretAtEnd, rectsForRange, selectionOffsets } from './text';
 import { SuggestionPopover } from './components/SuggestionPopover';
+import { MarkPopover } from './components/MarkPopover';
 import { HistoryView, VersionSnap } from './components/HistoryView';
 
 const HistoryIcon = () => (
@@ -30,7 +32,7 @@ import { SparkIcon } from './components/SparkIcon';
 import { useDemo } from './demo';
 
 const IDLE_MS = 4000; // writing → review after ~4s of stillness
-const MAX_VISIBLE_MARKS = 6; // hard cap; extras queue
+const MAX_VISIBLE_MARKS = 12; // hard cap; extras queue
 
 /** Actions that land on the ⌘Z stack (transient open/close ones don't). */
 const UNDOABLE = new Set<string>([
@@ -84,6 +86,15 @@ export default function App() {
   } | null>(null);
   const sugPopoverRef = useRef(sugPopover);
   sugPopoverRef.current = sugPopover;
+  const [markPopover, setMarkPopover] = useState<{
+    markId: string;
+    x: number;
+    y: number;
+    above: boolean;
+  } | null>(null);
+  const markPopoverRef = useRef(markPopover);
+  markPopoverRef.current = markPopover;
+  const [expandedSugId, setExpandedSugId] = useState<string | null>(null);
 
   /* ---------- version history ---------- */
 
@@ -174,6 +185,10 @@ export default function App() {
   const layoutRef = useRef<HTMLDivElement>(null);
   const idleTimer = useRef<number | undefined>(undefined);
   const poolIdx = useRef(0);
+  const askPoolIdx = useRef(0);
+  const armedSelection = useRef<Anchor | null>(null);
+  const [askThinking, setAskThinking] = useState(false);
+  const [askHasSelection, setAskHasSelection] = useState(false);
   const cmdkRef = useRef(cmdk);
   cmdkRef.current = cmdk;
   const drawerRef = useRef(drawerFor);
@@ -249,17 +264,21 @@ export default function App() {
   // rises to sit at the bottom edge; one above the fold drops to the top
   // edge; a fully visible note doesn't move at all.
   const scrollGutterToNote = useCallback((noteId: string) => {
-    const el = noteEls.current.get(noteId);
-    const g = gutterRef.current;
-    if (!el || !g) return;
-    const pad = 12;
-    const gr = g.getBoundingClientRect();
-    const er = el.getBoundingClientRect();
-    if (er.top < gr.top + pad) {
-      g.scrollTo({ top: g.scrollTop + (er.top - gr.top) - pad, behavior: 'smooth' });
-    } else if (er.bottom > gr.bottom - pad) {
-      g.scrollTo({ top: g.scrollTop + (er.bottom - gr.bottom) + pad, behavior: 'smooth' });
-    }
+    // Measure AFTER the card has re-rendered (selection expands it), so the
+    // expanded height is what gets scrolled into view.
+    window.setTimeout(() => {
+      const el = noteEls.current.get(noteId);
+      const g = gutterRef.current;
+      if (!el || !g) return;
+      const pad = 12;
+      const gr = g.getBoundingClientRect();
+      const er = el.getBoundingClientRect();
+      if (er.top < gr.top + pad) {
+        g.scrollTo({ top: g.scrollTop + (er.top - gr.top) - pad, behavior: 'smooth' });
+      } else if (er.bottom > gr.bottom - pad) {
+        g.scrollTo({ top: g.scrollTop + (er.bottom - gr.bottom) + pad, behavior: 'smooth' });
+      }
+    }, 40);
   }, []);
 
   // Hovering anchored text soft-highlights its signal card (no scrolling).
@@ -312,6 +331,8 @@ export default function App() {
         autoFocus: !!opts?.focus,
       });
       setHighlightedSugId(sugId);
+      setMarkPopover(null);
+      setExpandedSugId(null); // switching suggestions closes the previous one
       setDrawerFor(null); // one popover at a time
       const openMark = stateRef.current.ai.marks.find((m) => m.state === 'open');
       if (openMark) dispatch({ type: 'user/closeMark', id: openMark.id });
@@ -447,6 +468,80 @@ export default function App() {
     }, 800);
   }, []);
 
+  /* ---------- the ask bar (first-class prompting, never a chat) ---------- */
+
+  // Capture the live selection on mousedown, before focusing the bar kills it.
+  const armAskSelection = useCallback(() => {
+    const sel = window.getSelection();
+    let anchor: Anchor | null = null;
+    if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+      const r = sel.getRangeAt(0);
+      const container =
+        r.startContainer instanceof HTMLElement
+          ? r.startContainer
+          : r.startContainer.parentElement;
+      const editorEl = container?.closest<HTMLElement>('[data-editor]');
+      if (editorEl) {
+        const offs = selectionOffsets(editorEl);
+        if (offs) {
+          anchor = { paraId: editorEl.getAttribute('data-editor')!, start: offs.start, end: offs.end };
+        }
+      }
+    }
+    armedSelection.current = anchor;
+    setAskHasSelection(anchor !== null);
+  }, []);
+
+  const submitAsk = useCallback(
+    (_query: string) => {
+      const anchor = armedSelection.current;
+      armedSelection.current = null;
+      setAskHasSelection(false);
+      setAskThinking(true);
+      if (anchor) {
+        // Selection ask: same contract as ⌘K — shimmer, then an anchored suggestion.
+        setShimmer(anchor);
+        window.setTimeout(() => {
+          setShimmer(null);
+          setAskThinking(false);
+          const para = stateRef.current.doc.paras.find((p) => p.id === anchor.paraId);
+          if (!para) return;
+          const pick = CMDK_POOL[poolIdx.current++ % CMDK_POOL.length];
+          dispatch({
+            type: 'ai/addSuggestion',
+            suggestion: {
+              id: `s-ask-${Date.now()}`,
+              anchor,
+              state: 'queued',
+              originalText: para.text.slice(anchor.start, anchor.end),
+              proposedText: pick.proposedText,
+              rationale: pick.rationale,
+              refined: pick.refined,
+              refineCount: 0,
+            },
+          });
+          setGear('review');
+        }, 800);
+        return;
+      }
+      // Doc-level ask: the answer lands as an anchored signal in the margin.
+      window.setTimeout(() => {
+        setAskThinking(false);
+        const pick = DOC_ASK_POOL[askPoolIdx.current++ % DOC_ASK_POOL.length];
+        const para = stateRef.current.doc.paras.find((p) => p.id === pick.paraId);
+        if (!para) return;
+        const m = docAskMark(pick, para.text);
+        dispatch({ type: 'ai/addMark', mark: m });
+        setGear('review');
+        window.setTimeout(() => {
+          dispatch({ type: 'user/openMark', id: m.id });
+          scrollGutterToNote(m.id);
+        }, 350);
+      }, 700);
+    },
+    [scrollGutterToNote]
+  );
+
   /* ---------- global keys ---------- */
 
   useEffect(() => {
@@ -477,6 +572,10 @@ export default function App() {
           closeSugPopover();
           return;
         }
+        if (markPopoverRef.current) {
+          setMarkPopover(null);
+          return;
+        }
         if (drawerRef.current !== null) {
           setDrawerFor(null);
           return;
@@ -499,13 +598,60 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey);
   }, [openCmdline, closeSugPopover, undo, redo, demo.active, demo.next, demo.toggle]);
 
-  // One popover at a time: opening a mark closes the suggestion popover.
+  // Only one signal is ever selected: opening a mark closes the suggestion
+  // popover and collapses any expanded suggestion card.
   useEffect(() => {
     if (openMarkId) {
       setSugPopover(null);
       setHighlightedSugId(null);
+      setExpandedSugId(null);
     }
   }, [openMarkId]);
+
+  // Position a popover over a mark's anchored text — signals open over the
+  // text exactly like suggestions do.
+  const openMarkPopover = useCallback((markId: string) => {
+    const m = stateRef.current.ai.marks.find((x) => x.id === markId && x.state !== 'queued');
+    if (!m) return;
+    const el = editorEls.current.get(m.anchor.paraId);
+    if (!el) return;
+    const rects = rectsForRange(el, m.anchor.start, m.anchor.end);
+    if (rects.length === 0) return;
+    const first = rects[0];
+    const last = rects[rects.length - 1];
+    const above = window.innerHeight - last.bottom < 200;
+    setMarkPopover({
+      markId,
+      x: Math.max(12, Math.min(above ? first.left : last.left, window.innerWidth - 400)),
+      y: above ? first.top - 8 : last.bottom + 8,
+      above,
+    });
+    setSugPopover(null);
+    setHighlightedSugId(null);
+    setExpandedSugId(null);
+    setDrawerFor(null);
+  }, []);
+
+  // Keep it pinned while scrolling; close it if the mark goes away.
+  useEffect(() => {
+    if (!markPopover) return;
+    const re = () => openMarkPopover(markPopover.markId);
+    window.addEventListener('scroll', re, { passive: true });
+    window.addEventListener('resize', re);
+    return () => {
+      window.removeEventListener('scroll', re);
+      window.removeEventListener('resize', re);
+    };
+  }, [markPopover?.markId, openMarkPopover]);
+
+  useEffect(() => {
+    if (
+      markPopover &&
+      !state.ai.marks.some((m) => m.id === markPopover.markId && m.state !== 'queued')
+    ) {
+      setMarkPopover(null);
+    }
+  }, [state.ai.marks, markPopover]);
 
   // Clicking anywhere outside the text, panel, or an open popover closes
   // everything transient (evidence drill-in, suggestion popover, ask line,
@@ -515,12 +661,21 @@ export default function App() {
       const t = e.target instanceof HTMLElement ? e.target : null;
       if (!t) return;
       if (t.closest('[data-editor]')) return;
-      if (t.closest('.gutter') || t.closest('.sug-popover') || t.closest('.cmdline') || t.closest('.fmt-bar')) {
+      if (
+        t.closest('.gutter') ||
+        t.closest('.sug-popover') ||
+        t.closest('.cmdline') ||
+        t.closest('.fmt-bar') ||
+        t.closest('.ask-bar') ||
+        t.closest('.evidence-overlay')
+      ) {
         return;
       }
       const keepCmdk = t.closest('.ask-btn') !== null;
       setSugPopover(null);
+      setMarkPopover(null);
       setHighlightedSugId(null);
+      setExpandedSugId(null);
       setDrawerFor(null);
       if (!keepCmdk) setCmdk(null);
       const open = stateRef.current.ai.marks.find((m) => m.state === 'open');
@@ -698,6 +853,7 @@ export default function App() {
       setSugPopover(null);
       setHighlightedSugId(null);
       setDrawerFor(null); // leave any evidence drill-in — show the signal itself
+      openMarkPopover(hitMark.id); // signals open over the text, like suggestions
       scrollGutterToNote(hitMark.id);
       return;
     }
@@ -717,11 +873,13 @@ export default function App() {
     }
     // Clicked plain text: everything settles back down.
     setSugPopover(null);
+    setMarkPopover(null);
     setHighlightedSugId(null);
+    setExpandedSugId(null);
     setDrawerFor(null);
     const open = marks.find((m) => m.state === 'open');
     if (open) dispatch({ type: 'user/closeMark', id: open.id });
-  }, [openSugPopover, scrollGutterToNote]);
+  }, [openSugPopover, openMarkPopover, scrollGutterToNote]);
 
   const onFocusPara = useCallback((paraId: string) => setActiveParaId(paraId), []);
   const onBlurPara = useCallback(
@@ -747,6 +905,21 @@ export default function App() {
     if (el) noteEls.current.set(id, el);
     else noteEls.current.delete(id);
   }, []);
+
+  // Shared document-order numbering: text badges and sidebar cards match 1:1.
+  const numbers = useMemo(() => {
+    const map = new Map<string, number>();
+    let n = 1;
+    for (const p of state.doc.paras) {
+      for (const m of state.ai.marks) {
+        if (m.anchor.paraId === p.id && m.state !== 'queued') map.set(m.id, n++);
+      }
+      for (const s of state.ai.suggestions) {
+        if (s.anchor.paraId === p.id && s.state === 'pending') map.set(s.id, n++);
+      }
+    }
+    return map;
+  }, [state.doc.paras, state.ai.marks, state.ai.suggestions]);
 
   /* ---------- render ---------- */
 
@@ -820,6 +993,7 @@ export default function App() {
                 shimmer={shimmer && shimmer.paraId === para.id ? shimmer : null}
                 asking={cmdk && cmdk.anchor.paraId === para.id ? cmdk.anchor : null}
                 hoveredId={hoveredId}
+                numbers={numbers}
                 isFirst={i === 0}
                 onTyped={onTyped}
                 onSplit={onSplit}
@@ -846,6 +1020,19 @@ export default function App() {
         gear={gear}
         highlightedSugId={highlightedSugId}
         hoveredId={hoveredId}
+        numbers={numbers}
+        expandedSugId={expandedSugId}
+        onToggleSug={(id) => {
+          setExpandedSugId((cur) => (cur === id ? null : id));
+          // one selection anywhere: close any other suggestion's popover too
+          if (sugPopoverRef.current && sugPopoverRef.current.sugId !== id) {
+            setSugPopover(null);
+            setHighlightedSugId(null);
+          }
+          const open = stateRef.current.ai.marks.find((m) => m.state === 'open');
+          if (open) dispatch({ type: 'user/closeMark', id: open.id });
+          setMarkPopover(null);
+        }}
         onHoverNote={setHoveredId}
         dispatch={appDispatch}
         gutterRef={gutterRef}
@@ -856,6 +1043,23 @@ export default function App() {
         onOpenSuggestion={(id) => openSugPopover(id, { focus: true, scrollDoc: true })}
         onWake={onWake}
       />
+
+      {markPopover &&
+        (() => {
+          const m = state.ai.marks.find((x) => x.id === markPopover.markId);
+          return m ? (
+            <MarkPopover
+              mark={m}
+              num={numbers.get(m.id)}
+              x={markPopover.x}
+              y={markPopover.y}
+              above={markPopover.above}
+              dispatch={appDispatch}
+              onOpenEvidence={onOpenEvidence}
+              onClose={() => setMarkPopover(null)}
+            />
+          ) : null;
+        })()}
 
       {sugPopover &&
         (() => {
@@ -872,6 +1076,13 @@ export default function App() {
             />
           ) : null;
         })()}
+
+      <AskBar
+        hasSelection={askHasSelection}
+        thinking={askThinking}
+        onArmSelection={armAskSelection}
+        onSubmit={submitAsk}
+      />
 
       {fmtBar && !cmdk && (
         <div

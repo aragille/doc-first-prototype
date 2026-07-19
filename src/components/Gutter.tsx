@@ -36,6 +36,11 @@ interface Props {
   highlightedSugId: string | null;
   /** Signal/suggestion whose anchored text is hovered — soft highlight. */
   hoveredId: string | null;
+  /** Document-order numbering shared with the in-text badges. */
+  numbers: Map<string, number>;
+  /** Only one card is expanded at a time — owned by the app. */
+  expandedSugId: string | null;
+  onToggleSug: (id: string) => void;
   onHoverNote: (id: string | null) => void;
   dispatch: Dispatch<Action>;
   gutterRef: RefObject<HTMLDivElement>;
@@ -55,6 +60,9 @@ export function Gutter({
   gear,
   highlightedSugId,
   hoveredId,
+  numbers,
+  expandedSugId,
+  onToggleSug,
   onHoverNote,
   dispatch,
   gutterRef,
@@ -96,6 +104,7 @@ export function Gutter({
           <MarkNote
             key={item.id}
             mark={item.mark}
+            num={numbers.get(item.id)}
             hovered={hoveredId === item.id}
             onHover={(h) => onHoverNote(h ? item.id : null)}
             dispatch={dispatch}
@@ -106,8 +115,11 @@ export function Gutter({
           <SuggestionNote
             key={item.id}
             sug={item.sug}
+            num={numbers.get(item.id)}
             highlighted={highlightedSugId === item.id}
             hovered={hoveredId === item.id}
+            expanded={expandedSugId === item.id}
+            onToggle={() => onToggleSug(item.id)}
             onHover={(h) => onHoverNote(h ? item.id : null)}
             onOpen={() => onOpenSuggestion(item.id)}
             registerEl={(el) => registerNote(item.id, el)}

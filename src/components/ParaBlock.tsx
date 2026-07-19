@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { Anchor, Mark, Paragraph, Suggestion } from '../types';
-import { EditablePara, OverlaySpec } from './EditablePara';
+import { BadgeSpec, EditablePara, OverlaySpec } from './EditablePara';
 
 interface Props {
   para: Paragraph;
@@ -11,6 +11,8 @@ interface Props {
   asking: Anchor | null;
   /** Signal/suggestion currently hovered (text or note side). */
   hoveredId: string | null;
+  /** Document-order numbering shared with the sidebar cards. */
+  numbers: Map<string, number>;
   isFirst: boolean;
   onTyped: (paraId: string, text: string, formats: Paragraph['formats']) => void;
   onSplit: (paraId: string, offset: number) => void;
@@ -38,6 +40,7 @@ export function ParaBlock({
   shimmer,
   asking,
   hoveredId,
+  numbers,
   isFirst,
   onTyped,
   onSplit,
@@ -61,21 +64,21 @@ export function ParaBlock({
         end: para.provenance.end,
       });
     }
+    // All anchor tints are neutral grey — the number badge is the matching
+    // device; stance and kind live on the sidebar card.
     if (suggestion && suggestion.state === 'pending') {
       list.push({
         key: `sug-${suggestion.id}`,
-        className: `ov-suggestion${hoveredId === suggestion.id ? ' ov-sug-hover' : ''}`,
+        className: `ov-grey${hoveredId === suggestion.id ? ' ov-strong' : ''}`,
         start: suggestion.anchor.start,
         end: suggestion.anchor.end,
       });
     }
-    // Every visible mark tints its anchored text in its kind color —
-    // stronger when its note is focused or the text is hovered.
     for (const m of marks) {
       if (m.state === 'queued') continue;
       list.push({
         key: `mark-${m.id}`,
-        className: `ov-mark-${m.kind}${m.state === 'open' || m.id === hoveredId ? ' ov-open' : ''}`,
+        className: `ov-grey${m.state === 'open' || m.id === hoveredId ? ' ov-strong' : ''}`,
         start: m.anchor.start,
         end: m.anchor.end,
       });
@@ -88,6 +91,34 @@ export function ParaBlock({
     }
     return list;
   }, [para.provenance, suggestion, marks, asking, hoveredId, shimmer]);
+
+  // Plain number badges at the start of each anchored range — matching only.
+  const badges = useMemo<BadgeSpec[]>(() => {
+    const list: BadgeSpec[] = [];
+    for (const m of marks) {
+      if (m.state === 'queued') continue;
+      const n = numbers.get(m.id);
+      if (n === undefined) continue;
+      list.push({
+        key: `badge-${m.id}`,
+        className: 'badge-grey',
+        label: `${n}`,
+        offset: m.anchor.start,
+      });
+    }
+    if (suggestion && suggestion.state === 'pending') {
+      const n = numbers.get(suggestion.id);
+      if (n !== undefined) {
+        list.push({
+          key: `badge-${suggestion.id}`,
+          className: 'badge-grey',
+          label: `${n}`,
+          offset: suggestion.anchor.start,
+        });
+      }
+    }
+    return list;
+  }, [marks, suggestion, numbers]);
 
   return (
     <section
@@ -111,6 +142,7 @@ export function ParaBlock({
         <EditablePara
           para={para}
           overlays={overlays}
+          badges={badges}
           isFirst={isFirst}
           onInput={onTyped}
           onSplit={onSplit}

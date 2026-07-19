@@ -2,6 +2,19 @@ export type Gear = 'writing' | 'review';
 
 export type MarkKind = 'evidence' | 'contradiction' | 'question';
 
+/** The AI's stance toward the anchored claim — carried by the badge glyph
+ *  so it's legible without color or opening the card. */
+export type Stance = 'agrees' | 'disagrees' | 'questions';
+
+export const STANCE_GLYPH: Record<Stance, string> = {
+  agrees: '✓',
+  disagrees: '✕',
+  questions: '?',
+};
+
+/** Suggestions use a distinct "proposes" glyph. */
+export const PROPOSES_GLYPH = '≈';
+
 /** A reference to a specific range of text inside exactly one paragraph.
  *  Every AI object carries one of these — nothing is free-floating. */
 export interface Anchor {
@@ -20,6 +33,7 @@ export interface Mark {
   id: string;
   anchor: Anchor;
   kind: MarkKind;
+  stance: Stance;
   text: string;
   sourceLabel: string;
   /** queued → dot → open. Queued marks render nothing at all. */
