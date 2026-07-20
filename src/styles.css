@@ -1342,24 +1342,54 @@ kbd {
   z-index: 22;
 }
 
+/* Soft scrim behind the bar: the page fades toward white as it nears the
+   prompt, so the ask bar reads as a distinct, hovering layer rather than
+   just another element docked at the bottom. */
+.ask-bar-scrim {
+  position: fixed;
+  left: var(--left-rail);
+  right: var(--gutter-w);
+  bottom: 0;
+  height: 132px;
+  background: linear-gradient(
+    to top,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(255, 255, 255, 0.85) 32%,
+    rgba(255, 255, 255, 0.45) 62%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
 .ask-bar-inner {
+  position: relative;
+  z-index: 2;
   pointer-events: auto;
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: min(680px, 100%);
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  padding: 9px 12px;
-  box-shadow: 0 6px 24px rgba(31, 33, 38, 0.08);
+  gap: 10px;
+  width: min(720px, 100%);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid rgba(31, 33, 38, 0.12);
+  border-radius: 14px;
+  padding: 12px 16px;
+  box-shadow:
+    0 10px 30px rgba(31, 33, 38, 0.12),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
   font-family: var(--sans);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .ask-bar-inner:focus-within {
+  background: rgba(255, 255, 255, 0.9);
   border-color: var(--accent);
-  box-shadow: 0 6px 24px rgba(31, 33, 38, 0.06), 0 0 0 3px rgba(124, 111, 240, 0.12);
+  box-shadow:
+    0 10px 30px rgba(31, 33, 38, 0.1),
+    0 0 0 3px rgba(124, 111, 240, 0.14),
+    0 1px 0 rgba(255, 255, 255, 0.8) inset;
 }
 
 .ask-bar-spark {
@@ -1388,7 +1418,7 @@ kbd {
   outline: none;
   background: none;
   font-family: var(--sans);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--ink);
 }
 

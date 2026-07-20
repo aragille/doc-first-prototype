@@ -21,9 +21,10 @@ export function AskBar({ hasSelection, thinking, onArmSelection, onSubmit }: Pro
 
   return (
     <div className="ask-bar" onMouseDown={onArmSelection}>
+      <div className="ask-bar-scrim" aria-hidden="true" />
       <div className={`ask-bar-inner ${thinking ? 'thinking' : ''}`}>
         <span className="ask-bar-spark">
-          <SparkIcon size={15} />
+          <SparkIcon size={17} />
         </span>
         <input
           value={v}
