@@ -64,12 +64,12 @@ export function ParaBlock({
         end: para.provenance.end,
       });
     }
-    // All anchor tints are neutral grey — the number badge is the matching
-    // device; stance and kind live on the sidebar card.
+    // Anchor tints rest neutral (#F5F5F5) and take their stance color when
+    // hovered or selected; the number badge is always stance-colored.
     if (suggestion && suggestion.state === 'pending') {
       list.push({
         key: `sug-${suggestion.id}`,
-        className: `ov-grey${hoveredId === suggestion.id ? ' ov-strong' : ''}`,
+        className: `ov-anchor st-suggest${hoveredId === suggestion.id ? ' ov-strong' : ''}`,
         start: suggestion.anchor.start,
         end: suggestion.anchor.end,
       });
@@ -78,7 +78,7 @@ export function ParaBlock({
       if (m.state === 'queued') continue;
       list.push({
         key: `mark-${m.id}`,
-        className: `ov-grey${m.state === 'open' || m.id === hoveredId ? ' ov-strong' : ''}`,
+        className: `ov-anchor st-${m.stance}${m.state === 'open' || m.id === hoveredId ? ' ov-strong' : ''}`,
         start: m.anchor.start,
         end: m.anchor.end,
       });
@@ -92,7 +92,7 @@ export function ParaBlock({
     return list;
   }, [para.provenance, suggestion, marks, asking, hoveredId, shimmer]);
 
-  // Plain number badges at the start of each anchored range — matching only.
+  // Number badges at the start of each anchored range, colored by stance.
   const badges = useMemo<BadgeSpec[]>(() => {
     const list: BadgeSpec[] = [];
     for (const m of marks) {
@@ -101,7 +101,7 @@ export function ParaBlock({
       if (n === undefined) continue;
       list.push({
         key: `badge-${m.id}`,
-        className: 'badge-grey',
+        className: `badge-${m.stance}`,
         label: `${n}`,
         offset: m.anchor.start,
       });
@@ -111,7 +111,7 @@ export function ParaBlock({
       if (n !== undefined) {
         list.push({
           key: `badge-${suggestion.id}`,
-          className: 'badge-grey',
+          className: 'badge-suggest',
           label: `${n}`,
           offset: suggestion.anchor.start,
         });
