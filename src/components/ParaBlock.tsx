@@ -11,6 +11,8 @@ interface Props {
   asking: Anchor | null;
   /** Signal/suggestion currently hovered (text or note side). */
   hoveredId: string | null;
+  /** Suggestion currently selected — popover open or its card expanded. */
+  selectedSugId: string | null;
   /** Document-order numbering shared with the sidebar cards. */
   numbers: Map<string, number>;
   isFirst: boolean;
@@ -40,6 +42,7 @@ export function ParaBlock({
   shimmer,
   asking,
   hoveredId,
+  selectedSugId,
   numbers,
   isFirst,
   onTyped,
@@ -67,9 +70,10 @@ export function ParaBlock({
     // Anchor tints rest neutral (#F5F5F5) and take their stance color when
     // hovered or selected; the number badge is always stance-colored.
     if (suggestion && suggestion.state === 'pending') {
+      const strong = hoveredId === suggestion.id || selectedSugId === suggestion.id;
       list.push({
         key: `sug-${suggestion.id}`,
-        className: `ov-anchor st-suggest${hoveredId === suggestion.id ? ' ov-strong' : ''}`,
+        className: `ov-anchor st-suggest${strong ? ' ov-strong' : ''}`,
         start: suggestion.anchor.start,
         end: suggestion.anchor.end,
       });
@@ -90,7 +94,7 @@ export function ParaBlock({
       list.push({ key: 'shimmer', className: 'ov-shimmer', start: shimmer.start, end: shimmer.end });
     }
     return list;
-  }, [para.provenance, suggestion, marks, asking, hoveredId, shimmer]);
+  }, [para.provenance, suggestion, marks, asking, hoveredId, selectedSugId, shimmer]);
 
   // Number badges at the start of each anchored range, colored by stance.
   const badges = useMemo<BadgeSpec[]>(() => {

@@ -993,6 +993,7 @@ export default function App() {
                 shimmer={shimmer && shimmer.paraId === para.id ? shimmer : null}
                 asking={cmdk && cmdk.anchor.paraId === para.id ? cmdk.anchor : null}
                 hoveredId={hoveredId}
+                selectedSugId={highlightedSugId ?? expandedSugId}
                 numbers={numbers}
                 isFirst={i === 0}
                 onTyped={onTyped}
